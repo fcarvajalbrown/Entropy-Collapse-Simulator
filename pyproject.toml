@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "entropy-collapse-simulator"
+version = "1.0.0"
+description = "Entropy-based progressive collapse simulator for structural frames using Shannon entropy of strain energy distribution"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Felipe Carvajal", email = "" }
+]
+keywords = ["structural engineering", "progressive collapse", "entropy", "FEM", "finite element"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.12",
+    "matplotlib>=3.8",
+    "networkx>=3.2",
+    "Pillow>=10.0",
+]
+
+[project.scripts]
+entropy-collapse = "main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "entropy*", "simulation*", "solver*", "structure*", "visualization*"]
