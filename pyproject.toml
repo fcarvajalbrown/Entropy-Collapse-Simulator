@@ -4,13 +4,13 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "entropy-collapse-simulator"
-version = "1.0.0"
+version = "0.0.1"
 description = "Entropy-based progressive collapse simulator for structural frames using Shannon entropy of strain energy distribution"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
-    { name = "Felipe Carvajal", email = "" }
+    { name = "Felipe Carvajal", email = "fcarvajalbrown@protonmail.com" }
 ]
 keywords = ["structural engineering", "progressive collapse", "entropy", "FEM", "finite element"]
 classifiers = [
