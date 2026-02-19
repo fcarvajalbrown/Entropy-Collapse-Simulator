@@ -28,7 +28,11 @@ from structure.stiffness import assemble_global_stiffness, apply_boundary_condit
 from solver.equilibrium import _build_load_vector, apply_boundary_conditions_to_force, _solve_system
 
 
-def check_and_apply_failures(frame: FrameData, energy_state: EnergyState) -> list[int]:
+def check_and_apply_failures(
+    frame: FrameData,
+    energy_state: EnergyState,
+    load_factor: float = 1.0,
+) -> list[int]:
     """
     Check all members for failure and mark them in the frame.
 
@@ -38,14 +42,16 @@ def check_and_apply_failures(frame: FrameData, energy_state: EnergyState) -> lis
     Args:
         frame: Frame definition (modified in-place — failed flags updated).
         energy_state: Current energy state (used to skip already-failed members).
+        load_factor: Must match the load factor used in the current solve step
+                     so internal forces are computed at the same load level.
 
     Returns:
         List of member IDs that newly failed this step.
     """
-    # Re-solve to get displacement vector
+    # Re-solve at the current load level
     K = assemble_global_stiffness(frame)
     K = apply_boundary_conditions(K, frame)
-    F = _build_load_vector(frame)
+    F = _build_load_vector(frame, load_factor=load_factor)
     F = apply_boundary_conditions_to_force(F, frame)
     u = _solve_system(K, F)
 

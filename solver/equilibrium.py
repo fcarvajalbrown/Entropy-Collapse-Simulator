@@ -26,20 +26,23 @@ from structure.stiffness import (
 )
 
 
-def solve(frame: FrameData, step: int) -> EnergyState:
+def solve(frame: FrameData, step: int, load_factor: float = 1.0) -> EnergyState:
     """
     Solve Ku = F for the current frame state and return an EnergyState.
 
     Args:
         frame: Current frame definition (members may be partially failed).
         step: Current simulation step index.
+        load_factor: Scalar multiplier applied to all loads before solving.
+                     Used by the runner for incremental loading (default 1.0,
+                     which preserves backward-compatible behaviour).
 
     Returns:
         EnergyState with per-member strain energies and forces.
     """
     K = assemble_global_stiffness(frame)
     K = apply_boundary_conditions(K, frame)
-    F = _build_load_vector(frame)
+    F = _build_load_vector(frame, load_factor=load_factor)
     F = apply_boundary_conditions_to_force(F, frame)
     u = _solve_system(K, F)
 
@@ -53,12 +56,14 @@ def solve(frame: FrameData, step: int) -> EnergyState:
     return EnergyState(step=step, total_energy=total_energy, member_states=member_states)
 
 
-def _build_load_vector(frame: FrameData) -> np.ndarray:
+def _build_load_vector(frame: FrameData, load_factor: float = 1.0) -> np.ndarray:
     """
     Assemble the global force vector F from all applied loads.
 
     Args:
         frame: Frame definition containing load list.
+        load_factor: Scalar multiplier applied to all load magnitudes.
+                     Default 1.0 preserves backward-compatible behaviour.
 
     Returns:
         F (np.ndarray): Force vector of shape (n_dof,).
@@ -67,7 +72,7 @@ def _build_load_vector(frame: FrameData) -> np.ndarray:
     F = np.zeros(n_dof)
     for load in frame.loads:
         global_dof = load.node_id * 6 + load.dof
-        F[global_dof] += load.magnitude
+        F[global_dof] += load.magnitude * load_factor
     return F
 
 

@@ -29,8 +29,8 @@ def scenario_2d_simple(
     """
     Basic 2D simply-supported frame under a central point load.
 
-    Good for first-run validation and understanding the entropy curve
-    before failure events.
+    Uses incremental loading (load_factor_step=0.5) so member failures
+    and entropy evolution occur within a reasonable step count.
 
     Args:
         max_steps: Maximum simulation steps.
@@ -40,7 +40,13 @@ def scenario_2d_simple(
         SimulationResult from the runner.
     """
     frame = frame_2d_simple.build()
-    return runner.run(frame, max_steps=max_steps, collapse_method=collapse_method)
+    return runner.run(
+        frame,
+        max_steps=max_steps,
+        collapse_method=collapse_method,
+        load_factor_start=1.0,
+        load_factor_step=0.5,
+    )
 
 
 def scenario_3d_redundant(
@@ -51,8 +57,8 @@ def scenario_3d_redundant(
     3D redundant space frame — tests energy redistribution across
     multiple load paths after member failures.
 
-    More complex entropy curve; better for demonstrating the collapse
-    detection advantage over displacement-based criteria.
+    Uses incremental loading (load_factor_step=0.3) to drive progressive
+    failures across the redundant load paths.
 
     Args:
         max_steps: Maximum simulation steps.
@@ -62,7 +68,13 @@ def scenario_3d_redundant(
         SimulationResult from the runner.
     """
     frame = frame_3d_redundant.build()
-    return runner.run(frame, max_steps=max_steps, collapse_method=collapse_method)
+    return runner.run(
+        frame,
+        max_steps=max_steps,
+        collapse_method=collapse_method,
+        load_factor_start=1.0,
+        load_factor_step=0.3,
+    )
 
 
 def scenario_pratt_bridge(
@@ -72,10 +84,9 @@ def scenario_pratt_bridge(
     """
     6-panel Pratt truss bridge under distributed traffic loading.
 
-    30m span, 4m height, 14 nodes, 25 members with differentiated
-    material grades per member type (chords, verticals, diagonals).
-    Best scenario for demonstrating entropy localization along a
-    progressive collapse path in a real engineering structure.
+    Uses incremental loading (load_factor_step=0.05) to simulate
+    gradually increasing traffic load until progressive member failures
+    and eventual collapse.
 
     Args:
         max_steps: Maximum simulation steps.
@@ -85,7 +96,13 @@ def scenario_pratt_bridge(
         SimulationResult from the runner.
     """
     frame = frame_pratt_bridge.build()
-    return runner.run(frame, max_steps=max_steps, collapse_method=collapse_method)
+    return runner.run(
+        frame,
+        max_steps=max_steps,
+        collapse_method=collapse_method,
+        load_factor_start=1.0,
+        load_factor_step=0.2,
+    )
 
 
 # ---------------------------------------------------------------------------

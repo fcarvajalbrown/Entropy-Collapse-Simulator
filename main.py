@@ -24,6 +24,7 @@ from structure.frames import frame_2d_simple, frame_3d_redundant, frame_pratt_br
 from simulation.runner import run
 from visualization.graph_view import plot_frame, plot_collapse_sequence
 from visualization.entropy_plot import plot_entropy
+from visualization.animation import animate_collapse
 
 
 FRAME_MODULES = {
@@ -41,6 +42,7 @@ def main():
       1. Frame view at the final step with energy heatmap
       2. Collapse sequence overlay (if collapse was detected)
       3. Entropy evolution plot (S, dS/dt, Gini index)
+      4. Animation of energy redistribution (if --animate is set)
     """
     args = _parse_args()
 
@@ -57,6 +59,7 @@ def main():
     print(f"Running scenario : {args.scenario}")
     print(f"Detection method : {args.method}")
     print(f"Max steps        : {args.steps}")
+    print(f"Load factor step : {args.load_step}")
     print()
 
     frame = FRAME_MODULES[args.scenario].build()
@@ -64,7 +67,9 @@ def main():
     result = run(
         frame,
         max_steps=args.steps,
-        collapse_method=args.method
+        collapse_method=args.method,
+        load_factor_start=1.0,
+        load_factor_step=args.load_step,
     )
 
     # --- Report summary ---
@@ -109,6 +114,18 @@ def main():
         save_path=os.path.join(save_dir, "entropy_analysis.png") if args.save else None
     )
 
+    if args.animate:
+        output_path = os.path.join(
+            save_dir if args.save else ".",
+            f"collapse_{args.scenario}.{args.animate_fmt}"
+        )
+        animate_collapse(
+            result=result,
+            frame=frame,
+            output_path=output_path,
+            fps=args.fps,
+        )
+
 
 def _parse_args() -> argparse.Namespace:
     """
@@ -135,8 +152,26 @@ def _parse_args() -> argparse.Namespace:
         help="Maximum simulation steps (default: 100)"
     )
     parser.add_argument(
+        "--load-step", dest="load_step", type=float, default=0.2,
+        help="Load factor increment per step (default: 0.2). "
+             "Set to 0.0 for static loading at design load."
+    )
+    parser.add_argument(
         "--save", action="store_true",
         help="Save figures to output_figures/ instead of displaying"
+    )
+    parser.add_argument(
+        "--animate", action="store_true",
+        help="Produce an animation of energy redistribution (saved to file)"
+    )
+    parser.add_argument(
+        "--animate-fmt", dest="animate_fmt", type=str, default="gif",
+        choices=["gif", "mp4"],
+        help="Animation output format (default: gif)"
+    )
+    parser.add_argument(
+        "--fps", type=int, default=10,
+        help="Frames per second for animation (default: 10)"
     )
     parser.add_argument(
         "--list", action="store_true",

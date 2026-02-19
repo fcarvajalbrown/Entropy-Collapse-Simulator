@@ -30,6 +30,8 @@ def run(
     collapse_method: str = "zscore",
     collapse_threshold: float = -0.5,
     collapse_zscore: float = 3.0,
+    load_factor_start: float = 1.0,
+    load_factor_step: float = 0.0,
 ) -> SimulationResult:
     """
     Execute the full progressive collapse simulation for a given frame.
@@ -41,6 +43,13 @@ def run(
         collapse_method: Detection strategy — "zscore" or "threshold".
         collapse_threshold: dS threshold for threshold-based detection.
         collapse_zscore: Z-score cutoff for zscore-based detection.
+        load_factor_start: Initial load multiplier applied to all loads.
+                           Default 1.0 = design load. Use e.g. 0.5 to start at
+                           half load and ramp up.
+        load_factor_step: Increment added to the load factor each step.
+                          Default 0.0 = static loading (no incremental ramp).
+                          Set e.g. 0.1 to increase load by 10% per step and
+                          drive progressive failures under real material limits.
 
     Returns:
         SimulationResult with full energy and entropy history.
@@ -52,8 +61,10 @@ def run(
 
     for step in range(max_steps):
 
+        load_factor = load_factor_start + step * load_factor_step
+
         # --- Step 1: Solve equilibrium ---
-        energy_state = solve(frame, step)
+        energy_state = solve(frame, step, load_factor=load_factor)
         energy_history.append(energy_state)
 
         # --- Step 2: Compute entropy ---
@@ -76,7 +87,7 @@ def run(
             )
 
         # --- Step 4: Check member failures ---
-        newly_failed = check_and_apply_failures(frame, energy_state)
+        newly_failed = check_and_apply_failures(frame, energy_state, load_factor=load_factor)
         failed_sequence.extend(newly_failed)
 
         if all_failed(frame):
