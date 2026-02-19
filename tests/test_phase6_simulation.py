@@ -12,6 +12,7 @@ Checks:
 """
 
 import sys
+import dataclasses
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -43,7 +44,7 @@ def test_collapse_detected_with_low_sigma_y():
     """Collapse is detected when members have very low sigma_y."""
     frame = frame_2d_simple.build()
     for m in frame.members:
-        m.sigma_y = 1.0  # 1 Pa — fails under any real force
+        m.material = dataclasses.replace(m.material, sigma_y=1.0)  # 1 Pa — fails under any real force
 
     result = run(frame, max_steps=50, collapse_method="threshold", collapse_threshold=-0.01)
     assert result.collapse_detected == True, "Expected collapse to be detected"
@@ -55,7 +56,7 @@ def test_no_collapse_without_failure():
     """With very high sigma_y, no collapse occurs and simulation runs to max_steps."""
     frame = frame_2d_simple.build()
     for m in frame.members:
-        m.sigma_y = 1e20  # Indestructible
+        m.material = dataclasses.replace(m.material, sigma_y=1e20)  # Indestructible
 
     result = run(frame, max_steps=10, collapse_method="zscore")
     assert result.collapse_detected == False
@@ -67,7 +68,7 @@ def test_no_collapse_without_failure():
 def test_failed_sequence_order():
     """failed_sequence is populated in failure order."""
     frame = frame_2d_simple.build()
-    frame.members[0].sigma_y = 1.0  # Only member 0 fails
+    frame.members[0].material = dataclasses.replace(frame.members[0].material, sigma_y=1.0)  # Only member 0 fails
 
     result = run(frame, max_steps=20, collapse_method="threshold", collapse_threshold=-999)
     if result.failed_sequence:

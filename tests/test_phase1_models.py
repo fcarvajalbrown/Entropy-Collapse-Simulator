@@ -7,6 +7,7 @@ No solver logic is tested here — pure data contract validation.
 """
 
 import sys
+import dataclasses
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -25,9 +26,12 @@ def test_node_instantiation():
 
 
 def test_member_instantiation():
-    """Member creates correctly with default failed=False."""
-    m = Member(id=0, node_start=0, node_end=1, E=200e9, A=0.01, I=1e-4)
+    """Member creates correctly with Material and default failed=False."""
+    from core.models import STEEL_S275
+    m = Member(id=0, node_start=0, node_end=1, material=STEEL_S275)
     assert m.failed == False
+    assert m.E == 200e9
+    assert m.sigma_y == 275e6
     print("  PASS: Member instantiation")
 
 

@@ -15,23 +15,10 @@ Members:
     0 → connects Node 0 to Node 1 (left span)
     1 → connects Node 1 to Node 2 (right span)
 
-Material: Steel (E = 200 GPa, A = 0.01 m², I = 1e-4 m⁴)
-
-This frame is intentionally simple enough to validate results by hand.
-Both members will fail sequentially under the central load, producing
-a clean two-step entropy drop for calibrating the collapse detector.
+Material: S275 Steel (E=200 GPa, A=0.01 m², I=1e-4 m⁴, sigma_y=275 MPa)
 """
 
-from core.models import FrameData, Node, Member, Load
-
-
-# ---------------------------------------------------------------------------
-# Material & section constants
-# ---------------------------------------------------------------------------
-
-E_STEEL = 200e9   # Young's modulus, Pa
-A_SECTION = 0.01  # Cross-sectional area, m²
-I_SECTION = 1e-4  # Second moment of area, m⁴
+from core.models import FrameData, Node, Member, Load, STEEL_S275
 
 
 def build() -> FrameData:
@@ -42,25 +29,17 @@ def build() -> FrameData:
         FrameData with 3 nodes, 2 members, boundary conditions,
         and a single downward point load at the central node.
     """
-    nodes = _define_nodes()
-    members = _define_members()
-    loads = _define_loads()
-
     return FrameData(
         name="2D Simple Truss",
-        nodes=nodes,
-        members=members,
-        loads=loads
+        nodes=_define_nodes(),
+        members=_define_members(),
+        loads=_define_loads()
     )
 
 
 def _define_nodes() -> list[Node]:
     """
-    Define the three nodes of the truss.
-
-    Node 0: left support  — pinned (ux, uy fixed → DOFs 0, 1)
-    Node 1: midspan joint — free
-    Node 2: right support — pinned (ux, uy fixed → DOFs 0, 1)
+    Define three nodes: two pinned supports and one free midspan joint.
 
     Returns:
         List of 3 Node objects.
@@ -74,26 +53,22 @@ def _define_nodes() -> list[Node]:
 
 def _define_members() -> list[Member]:
     """
-    Define two horizontal members spanning between the three nodes.
-
-    Member 0: Node 0 → Node 1 (left span, 5 m)
-    Member 1: Node 1 → Node 2 (right span, 5 m)
+    Define two horizontal members using S275 steel.
 
     Returns:
-        List of 2 Member objects with steel properties.
+        List of 2 Member objects.
     """
     return [
-        Member(id=0, node_start=0, node_end=1, E=E_STEEL, A=A_SECTION, I=I_SECTION),
-        Member(id=1, node_start=1, node_end=2, E=E_STEEL, A=A_SECTION, I=I_SECTION),
+        Member(id=0, node_start=0, node_end=1, material=STEEL_S275),
+        Member(id=1, node_start=1, node_end=2, material=STEEL_S275),
     ]
 
 
 def _define_loads() -> list[Load]:
     """
-    Apply a single downward point load at Node 1 (midspan).
+    Apply a 50 kN downward point load at Node 1 (midspan).
 
-    DOF 1 = uy (vertical displacement).
-    Magnitude = -50,000 N (negative = downward).
+    DOF 1 = uy. Magnitude negative = downward.
 
     Returns:
         List with one Load object.

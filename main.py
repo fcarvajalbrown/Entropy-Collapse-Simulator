@@ -4,10 +4,10 @@ main.py
 Entry point for the Entropy-Based Progressive Collapse Simulator.
 
 Usage:
-    python main.py                        # runs default scenario (2d_simple)
+    python main.py                          # runs default scenario (2d_simple)
     python main.py --scenario 3d_redundant
     python main.py --scenario 2d_simple --method threshold --steps 200
-    python main.py --list                 # list available scenarios
+    python main.py --list                   # list available scenarios
 
 Arguments:
     --scenario  : Scenario name from the registry (default: 2d_simple)
@@ -20,16 +20,23 @@ Arguments:
 import argparse
 import os
 
-from simulation.scenarios import run_scenario, list_scenarios
+from structure.frames import frame_2d_simple, frame_3d_redundant
+from simulation.runner import run
 from visualization.graph_view import plot_frame, plot_collapse_sequence
 from visualization.entropy_plot import plot_entropy
+
+
+FRAME_MODULES = {
+    "2d_simple":     frame_2d_simple,
+    "3d_redundant":  frame_3d_redundant,
+}
 
 
 def main():
     """
     Parse CLI arguments, run the selected scenario, and display results.
 
-    Runs the simulation, then shows:
+    Loads the frame, runs the simulation, then shows:
       1. Frame view at the final step with energy heatmap
       2. Collapse sequence overlay (if collapse was detected)
       3. Entropy evolution plot (S, dS/dt, Gini index)
@@ -38,31 +45,21 @@ def main():
 
     if args.list:
         print("Available scenarios:")
-        for name in list_scenarios():
+        for name in FRAME_MODULES:
             print(f"  {name}")
         return
 
-    from structure.frames import frame_2d_simple, frame_3d_redundant
-    frame_modules = {
-        "2d_simple": frame_2d_simple,
-        "3d_redundant": frame_3d_redundant,
-    }
+    if args.scenario not in FRAME_MODULES:
+        print(f"Unknown scenario '{args.scenario}'. Use --list to see available options.")
+        return
 
-    print(f"Running scenario: {args.scenario}")
-    print(f"  Detection method : {args.method}")
-    print(f"  Max steps        : {args.steps}")
+    print(f"Running scenario : {args.scenario}")
+    print(f"Detection method : {args.method}")
+    print(f"Max steps        : {args.steps}")
     print()
 
-    frame = frame_modules[args.scenario].build()
+    frame = FRAME_MODULES[args.scenario].build()
 
-    # Apply sigma_y override if provided
-    if args.sigma_y is not None:
-        for m in frame.members:
-            m.sigma_y = args.sigma_y
-        print(f"  sigma_y override  : {args.sigma_y:.2e} Pa")
-        print()
-
-    from simulation.runner import run
     result = run(
         frame,
         max_steps=args.steps,
@@ -85,11 +82,8 @@ def main():
         os.makedirs(save_dir, exist_ok=True)
         print(f"Saving figures to: {save_dir}/")
 
-    # Frame view at final step
     final_energy = result.energy_history[-1]
     final_entropy = result.entropy_history[-1]
-
-    # frame already built above
 
     plot_frame(
         frame=frame,
@@ -146,10 +140,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--list", action="store_true",
         help="List available scenarios and exit"
-    )
-    parser.add_argument(
-        "--sigma-y", type=float, default=None,
-        help="Override sigma_y (yield stress in Pa) for all members. Default: 250 MPa steel."
     )
     return parser.parse_args()
 

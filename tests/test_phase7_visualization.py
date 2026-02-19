@@ -11,6 +11,7 @@ Checks:
 """
 
 import sys
+import dataclasses
 import os
 import tempfile
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -57,7 +58,7 @@ def test_plot_entropy_saves_file():
     """plot_entropy() saves a PNG without crashing."""
     frame = frame_2d_simple.build()
     for m in frame.members:
-        m.sigma_y = 1e20  # No failures, clean entropy curve
+        m.material = dataclasses.replace(m.material, sigma_y=1e20)  # No failures, clean entropy curve
 
     result = run(frame, max_steps=10, collapse_method="zscore")
 
@@ -73,7 +74,7 @@ def test_plot_entropy_with_collapse():
     """plot_entropy() handles collapse_detected=True without crashing."""
     frame = frame_2d_simple.build()
     for m in frame.members:
-        m.sigma_y = 1.0
+        m.material = dataclasses.replace(m.material, sigma_y=1.0)
 
     result = run(frame, max_steps=20, collapse_method="threshold", collapse_threshold=-0.01)
 

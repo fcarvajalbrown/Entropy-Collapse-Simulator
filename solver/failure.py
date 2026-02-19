@@ -50,7 +50,7 @@ def _capacity(member) -> float:
     """
     Compute the load capacity of a member as sigma_y * A.
 
-    Defaults to 250 MPa steel if sigma_y is not set on the member.
+    Uses member.material.sigma_y — always explicitly defined in frame files.
 
     Args:
         member: Member with cross-sectional area A.
@@ -58,8 +58,7 @@ def _capacity(member) -> float:
     Returns:
         Capacity in Newtons.
     """
-    sigma_y = getattr(member, "sigma_y", 250e6)
-    return sigma_y * member.A
+    return member.sigma_y * member.A
 
 
 def _get_member(frame: FrameData, member_id: int):

@@ -11,6 +11,7 @@ Checks:
 """
 
 import sys
+import dataclasses
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -23,7 +24,7 @@ from solver.redistribution import redistribute
 def test_member_fails_under_low_capacity():
     """A member with sigma_y = 1 Pa fails immediately under any load."""
     frame = frame_2d_simple.build()
-    frame.members[0].sigma_y = 1.0  # 1 Pa — fails under any real force
+    frame.members[0].material = dataclasses.replace(frame.members[0].material, sigma_y=1.0)  # 1 Pa — fails under any real force
 
     es = solve(frame, step=0)
     newly_failed = check_and_apply_failures(frame, es)
@@ -36,7 +37,7 @@ def test_member_fails_under_low_capacity():
 def test_failure_marks_member_in_frame():
     """After failure, frame.members[0].failed is True."""
     frame = frame_2d_simple.build()
-    frame.members[0].sigma_y = 1.0
+    frame.members[0].material = dataclasses.replace(frame.members[0].material, sigma_y=1.0)
     es = solve(frame, step=0)
     check_and_apply_failures(frame, es)
     assert frame.members[0].failed == True
@@ -49,7 +50,7 @@ def test_redistribution_conserves_energy():
     (Not strictly conserved due to ODE discretization, but should be close.)
     """
     frame = frame_2d_simple.build()
-    frame.members[0].sigma_y = 1.0
+    frame.members[0].material = dataclasses.replace(frame.members[0].material, sigma_y=1.0)
     es = solve(frame, step=0)
     check_and_apply_failures(frame, es)
 

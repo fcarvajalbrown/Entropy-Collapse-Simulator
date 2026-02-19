@@ -15,6 +15,59 @@ from typing import List, Tuple, Optional
 
 
 # ---------------------------------------------------------------------------
+# Material
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Material:
+    """
+    Material and cross-section properties for a structural member.
+
+    Centralizes all physical properties so members reference a single
+    material object rather than carrying loose floats. This ensures
+    scientific rigor — changing a material property updates all members
+    that reference it.
+
+    Attributes:
+        name (str): Human-readable material name (e.g. "S275 Steel").
+        E (float): Young's modulus in Pa.
+        A (float): Cross-sectional area in m².
+        I (float): Second moment of area in m⁴ (strong axis bending).
+        sigma_y (float): Yield stress in Pa. Used for failure criterion.
+        rho (float): Density in kg/m³. Reserved for dynamic analysis.
+    """
+    name: str
+    E: float
+    A: float
+    I: float
+    sigma_y: float
+    rho: float = 7850.0  # Default: structural steel density
+
+
+# ---------------------------------------------------------------------------
+# Predefined common materials for convenience
+# ---------------------------------------------------------------------------
+
+STEEL_S275 = Material(
+    name="S275 Steel",
+    E=200e9,
+    A=0.01,
+    I=1e-4,
+    sigma_y=275e6,
+    rho=7850.0
+)
+
+STEEL_S355 = Material(
+    name="S355 Steel",
+    E=200e9,
+    A=0.01,
+    I=1e-4,
+    sigma_y=355e6,
+    rho=7850.0
+)
+
+
+# ---------------------------------------------------------------------------
 # Geometry
 # ---------------------------------------------------------------------------
 
@@ -44,23 +97,43 @@ class Member:
     """
     Represents a structural member (beam or column) connecting two nodes.
 
+    Material and section properties are held in a Material object,
+    not as loose floats. This ensures all physical properties are
+    explicitly defined and scientifically traceable.
+
     Attributes:
         id (int): Unique identifier for the member.
         node_start (int): ID of the start node.
         node_end (int): ID of the end node.
-        E (float): Young's modulus in Pa.
-        A (float): Cross-sectional area in m².
-        I (float): Second moment of area in m⁴ (for bending).
-        failed (bool): Whether this member has failed and been removed from
-                       the active stiffness matrix. Set by the failure module.
+        material (Material): Material and cross-section properties.
+        failed (bool): Whether this member has failed. Set by failure module.
     """
     id: int
     node_start: int
     node_end: int
-    E: float
-    A: float
-    I: float
+    material: Material
     failed: bool = False
+
+    # Convenience properties so solver code stays readable
+    @property
+    def E(self) -> float:
+        """Young's modulus from material."""
+        return self.material.E
+
+    @property
+    def A(self) -> float:
+        """Cross-sectional area from material."""
+        return self.material.A
+
+    @property
+    def I(self) -> float:
+        """Second moment of area from material."""
+        return self.material.I
+
+    @property
+    def sigma_y(self) -> float:
+        """Yield stress from material."""
+        return self.material.sigma_y
 
 
 @dataclass
@@ -114,8 +187,8 @@ class MemberState:
     Attributes:
         member_id (int): Corresponds to Member.id.
         strain_energy (float): Elastic strain energy stored in the member (Joules).
-                               Computed as U_i = 0.5 * k_i * delta_i^2.
-        axial_force (float): Internal axial force in Newtons.
+        axial_force (float): Total internal force magnitude in Newtons.
+                             Includes axial, shear, and moment resultants.
         deformation (float): Axial deformation in meters.
         failed (bool): Whether this member has failed at this time step.
     """
@@ -157,8 +230,7 @@ class EntropyRecord:
 
     Attributes:
         step (int): Simulation time step index.
-        entropy (float): Structural entropy S = -sum(p_i * ln(p_i)),
-                         where p_i = U_i / sum(U).
+        entropy (float): Structural entropy S = -sum(p_i * ln(p_i)).
                          High entropy = distributed energy (safe).
                          Low entropy = localized energy (dangerous).
         delta_entropy (float): Change in entropy from previous step (dS/dt proxy).
