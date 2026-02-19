@@ -79,8 +79,11 @@ def _compute_member_state(member, u: np.ndarray, frame: FrameData) -> MemberStat
     """
     Compute strain energy and axial force for a single member given displacements.
 
-    Strain energy: U_i = 0.5 * k_i * delta_i^2
-    where k_i = EA/L and delta_i is the axial deformation.
+    Projects nodal displacements onto the member axis to get axial deformation,
+    then computes strain energy as U = 0.5 * EA/L * delta^2.
+
+    NOTE: Currently uses axial deformation only. Bending contributions
+    (0.5 * EI * curvature^2) can be added later without breaking the interface.
 
     Args:
         member: Member to evaluate.
@@ -90,6 +93,8 @@ def _compute_member_state(member, u: np.ndarray, frame: FrameData) -> MemberStat
     Returns:
         MemberState with energy, force, deformation, and failed flag.
     """
+    import numpy as np
+
     if member.failed:
         return MemberState(
             member_id=member.id,
@@ -99,15 +104,25 @@ def _compute_member_state(member, u: np.ndarray, frame: FrameData) -> MemberStat
             failed=True
         )
 
-    L = _member_length(member, frame)
     n_start = _get_node(frame, member.node_start)
     n_end = _get_node(frame, member.node_end)
+    L = _member_length(member, frame)
 
-    # Axial DOFs only (DOF 0 = ux for each node)
-    u_start = u[member.node_start * 6]
-    u_end = u[member.node_end * 6]
+    # Unit vector along member axis
+    axis = np.array([
+        n_end.x - n_start.x,
+        n_end.y - n_start.y,
+        n_end.z - n_start.z
+    ]) / L
 
-    delta = u_end - u_start
+    # Displacement vectors at each node (ux, uy, uz only)
+    i = member.node_start * 6
+    j = member.node_end * 6
+    u_start = u[i:i+3]
+    u_end   = u[j:j+3]
+
+    # Axial deformation = projection of relative displacement onto member axis
+    delta = float(np.dot(u_end - u_start, axis))
     k_axial = member.E * member.A / L
     axial_force = k_axial * delta
     strain_energy = 0.5 * k_axial * delta**2

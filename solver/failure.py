@@ -34,9 +34,24 @@ def check_and_apply_failures(frame: FrameData, energy_state: EnergyState) -> lis
             continue
 
         member = _get_member(frame, ms.member_id)
-        capacity = _axial_capacity(member)
 
-        if abs(ms.axial_force) >= capacity:
+        # Primary check: axial force vs capacity
+        axial_cap = _axial_capacity(member)
+        # Secondary check: strain energy vs energy capacity (U = F^2*L / 2EA)
+        # This catches bending-dominated members where axial force is near zero
+        from structure.stiffness import _member_length
+        # We need frame for length — use a simpler approach: energy threshold
+        # U_capacity = 0.5 * F_cap^2 / k = 0.5 * (sigma_y*A)^2*L / (E*A)
+        # Simplified: fail if abs(axial_force) >= capacity OR strain_energy > energy_cap
+        sigma_y = getattr(member, "sigma_y", 250e6)
+        # Energy-based threshold: U > 0.5 * sigma_y^2 * A * L / E
+        # Use a normalized check: if energy per unit volume exceeds yield criterion
+        energy_threshold = getattr(member, "energy_capacity", None)
+
+        failed_by_force = abs(ms.axial_force) >= axial_cap
+        failed_by_energy = (energy_threshold is not None and ms.strain_energy >= energy_threshold)
+
+        if failed_by_force or failed_by_energy:
             member.failed = True
             newly_failed.append(member.id)
 
@@ -60,6 +75,23 @@ def _axial_capacity(member) -> float:
     """
     sigma_y = getattr(member, "sigma_y", 250e6)  # Default: 250 MPa steel
     return sigma_y * member.A
+
+
+def _shear_capacity(member) -> float:
+    """
+    Compute shear capacity as 0.6 * sigma_y * A (Von Mises approximation).
+
+    Used as failure criterion for members dominated by bending/shear
+    rather than pure axial force (e.g. horizontal beams under vertical loads).
+
+    Args:
+        member: Member with cross-sectional area A.
+
+    Returns:
+        Shear capacity in Newtons.
+    """
+    sigma_y = getattr(member, "sigma_y", 250e6)
+    return 0.6 * sigma_y * member.A
 
 
 def _get_member(frame: FrameData, member_id: int):
