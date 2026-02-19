@@ -2,23 +2,26 @@
 solver/failure.py
 =================
 Evaluates member failure criteria and marks failed members in the frame.
-A failed member is excluded from stiffness assembly in subsequent steps.
 
-Current criterion: axial force exceeds member capacity (F > F_yield).
-Bending failure (M > M_plastic) can be added later without breaking the interface.
+Failure criterion: total internal force magnitude exceeds member capacity.
+    F_magnitude >= sigma_y * A
+
+Since MemberState.axial_force now stores the full internal force magnitude
+(from equilibrium.py), this correctly catches both axial and bending-dominated
+failures without needing separate shear or bending checks.
 
 Consumed by simulation/runner.py after each equilibrium solve.
 """
 
-from core.models import FrameData, EnergyState, MemberState
+from core.models import FrameData, EnergyState
 
 
 def check_and_apply_failures(frame: FrameData, energy_state: EnergyState) -> list[int]:
     """
     Check all members for failure and mark them in the frame.
 
-    Iterates over member states, compares axial force against capacity,
-    and sets member.failed = True for any that exceed the limit.
+    Compares internal force magnitude against yield capacity (sigma_y * A).
+    Sets member.failed = True for any that exceed the limit.
 
     Args:
         frame: Frame definition (modified in-place — failed flags updated).
@@ -34,76 +37,34 @@ def check_and_apply_failures(frame: FrameData, energy_state: EnergyState) -> lis
             continue
 
         member = _get_member(frame, ms.member_id)
+        capacity = _capacity(member)
 
-        # Primary check: axial force vs capacity
-        axial_cap = _axial_capacity(member)
-        # Secondary check: strain energy vs energy capacity (U = F^2*L / 2EA)
-        # This catches bending-dominated members where axial force is near zero
-        from structure.stiffness import _member_length
-        # We need frame for length — use a simpler approach: energy threshold
-        # U_capacity = 0.5 * F_cap^2 / k = 0.5 * (sigma_y*A)^2*L / (E*A)
-        # Simplified: fail if abs(axial_force) >= capacity OR strain_energy > energy_cap
-        sigma_y = getattr(member, "sigma_y", 250e6)
-        # Energy-based threshold: U > 0.5 * sigma_y^2 * A * L / E
-        # Use a normalized check: if energy per unit volume exceeds yield criterion
-        energy_threshold = getattr(member, "energy_capacity", None)
-
-        failed_by_force = abs(ms.axial_force) >= axial_cap
-        failed_by_energy = (energy_threshold is not None and ms.strain_energy >= energy_threshold)
-
-        if failed_by_force or failed_by_energy:
+        if ms.axial_force >= capacity:
             member.failed = True
             newly_failed.append(member.id)
 
     return newly_failed
 
 
-def _axial_capacity(member) -> float:
+def _capacity(member) -> float:
     """
-    Compute the axial load capacity of a member.
+    Compute the load capacity of a member as sigma_y * A.
 
-    Uses a yield-stress-based approach: F_yield = sigma_y * A.
-    Assumes steel with sigma_y = 250 MPa by default if not set on the member.
-
-    TODO: Add member.sigma_y field to Member model for custom materials.
+    Defaults to 250 MPa steel if sigma_y is not set on the member.
 
     Args:
         member: Member with cross-sectional area A.
 
     Returns:
-        Axial capacity in Newtons.
-    """
-    sigma_y = getattr(member, "sigma_y", 250e6)  # Default: 250 MPa steel
-    return sigma_y * member.A
-
-
-def _shear_capacity(member) -> float:
-    """
-    Compute shear capacity as 0.6 * sigma_y * A (Von Mises approximation).
-
-    Used as failure criterion for members dominated by bending/shear
-    rather than pure axial force (e.g. horizontal beams under vertical loads).
-
-    Args:
-        member: Member with cross-sectional area A.
-
-    Returns:
-        Shear capacity in Newtons.
+        Capacity in Newtons.
     """
     sigma_y = getattr(member, "sigma_y", 250e6)
-    return 0.6 * sigma_y * member.A
+    return sigma_y * member.A
 
 
 def _get_member(frame: FrameData, member_id: int):
     """
     Retrieve a member by ID from the frame.
-
-    Args:
-        frame: Frame definition.
-        member_id: ID to look up.
-
-    Returns:
-        Member object.
 
     Raises:
         ValueError: If member_id is not found.

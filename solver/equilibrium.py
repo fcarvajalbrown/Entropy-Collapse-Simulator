@@ -2,13 +2,28 @@
 solver/equilibrium.py
 =====================
 Solves the static equilibrium equation Ku = F and computes
-per-member strain energies. Produces an EnergyState consumed
-by the entropy module each simulation step.
+per-member strain energies using the full internal force vector.
+
+Strain energy is computed as:
+    U_i = 0.5 * u_local^T * k_local * u_local
+
+where u_local are the member's 12 nodal displacements transformed
+to local coordinates. This correctly captures both axial and bending
+contributions — critical for frames where load is carried in bending.
+
+Internal force magnitude is taken as the Euclidean norm of f_local,
+which includes axial, shear, and moment components.
 """
 
 import numpy as np
-from core.models import FrameData, EnergyState, MemberState, Load
-from structure.stiffness import assemble_global_stiffness, apply_boundary_conditions, _member_length, _get_node
+from core.models import FrameData, EnergyState, MemberState
+from structure.stiffness import (
+    assemble_global_stiffness,
+    apply_boundary_conditions,
+    _local_stiffness,
+    _transformation_matrix,
+    _get_node
+)
 
 
 def solve(frame: FrameData, step: int) -> EnergyState:
@@ -25,7 +40,6 @@ def solve(frame: FrameData, step: int) -> EnergyState:
     K = assemble_global_stiffness(frame)
     K = apply_boundary_conditions(K, frame)
     F = _build_load_vector(frame)
-
     u = _solve_system(K, F)
 
     member_states = [
@@ -77,24 +91,25 @@ def _solve_system(K: np.ndarray, F: np.ndarray) -> np.ndarray:
 
 def _compute_member_state(member, u: np.ndarray, frame: FrameData) -> MemberState:
     """
-    Compute strain energy and axial force for a single member given displacements.
+    Compute strain energy and internal force magnitude for a single member.
 
-    Projects nodal displacements onto the member axis to get axial deformation,
-    then computes strain energy as U = 0.5 * EA/L * delta^2.
+    Uses the full 12-DOF local stiffness formulation:
+        u_local = T * u_global  (transform displacements to local coords)
+        f_local = k_local * u_local  (internal force vector)
+        U_i = 0.5 * u_local^T * k_local * u_local  (strain energy)
 
-    NOTE: Currently uses axial deformation only. Bending contributions
-    (0.5 * EI * curvature^2) can be added later without breaking the interface.
+    This correctly captures axial, shear, and bending contributions.
+    Previously only axial projection was used, which gave zero energy
+    for bending-dominated members (e.g. horizontal beam under vertical load).
 
     Args:
         member: Member to evaluate.
         u: Global displacement vector.
-        frame: Used to retrieve node coordinates and length.
+        frame: Used to retrieve geometry for transformation matrix.
 
     Returns:
-        MemberState with energy, force, deformation, and failed flag.
+        MemberState with energy, force magnitude, deformation, and failed flag.
     """
-    import numpy as np
-
     if member.failed:
         return MemberState(
             member_id=member.id,
@@ -104,33 +119,47 @@ def _compute_member_state(member, u: np.ndarray, frame: FrameData) -> MemberStat
             failed=True
         )
 
+    # Extract 12 global DOFs for this member (6 per node)
+    i = member.node_start * 6
+    j = member.node_end * 6
+    u_global = np.concatenate([u[i:i+6], u[j:j+6]])
+
+    # Transform to local coordinates
+    T = _transformation_matrix(member, frame)
+    k_local = _local_stiffness(member, frame)
+    u_local = T @ u_global
+
+    # Full internal force vector in local coordinates
+    f_local = k_local @ u_local
+
+    # Strain energy from full deformation (axial + bending)
+    strain_energy = float(0.5 * u_local @ f_local)
+
+    # Axial force = local DOF 0 (f_local[0])
+    axial_force = float(f_local[0])
+
+    # Total internal force magnitude (includes shear and moment resultants)
+    force_magnitude = float(np.linalg.norm(f_local[:3]))
+
+    # Axial deformation for reference
     n_start = _get_node(frame, member.node_start)
     n_end = _get_node(frame, member.node_end)
-    L = _member_length(member, frame)
-
-    # Unit vector along member axis
+    L = float(np.sqrt(
+        (n_end.x - n_start.x)**2 +
+        (n_end.y - n_start.y)**2 +
+        (n_end.z - n_start.z)**2
+    ))
     axis = np.array([
         n_end.x - n_start.x,
         n_end.y - n_start.y,
         n_end.z - n_start.z
     ]) / L
-
-    # Displacement vectors at each node (ux, uy, uz only)
-    i = member.node_start * 6
-    j = member.node_end * 6
-    u_start = u[i:i+3]
-    u_end   = u[j:j+3]
-
-    # Axial deformation = projection of relative displacement onto member axis
-    delta = float(np.dot(u_end - u_start, axis))
-    k_axial = member.E * member.A / L
-    axial_force = k_axial * delta
-    strain_energy = 0.5 * k_axial * delta**2
+    deformation = float(np.dot(u_global[3:6] - u_global[0:3], axis))
 
     return MemberState(
         member_id=member.id,
-        strain_energy=strain_energy,
-        axial_force=axial_force,
-        deformation=delta,
+        strain_energy=max(strain_energy, 0.0),  # Clamp numerical noise
+        axial_force=force_magnitude,             # Total force magnitude
+        deformation=deformation,
         failed=False
     )

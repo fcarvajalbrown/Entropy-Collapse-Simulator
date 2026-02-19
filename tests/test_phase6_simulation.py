@@ -39,11 +39,11 @@ def test_3d_redundant_runs():
     print(f"  PASS: 3d_redundant ran {len(result.energy_history)} steps")
 
 
-def test_collapse_detected_with_low_energy_capacity():
-    """Collapse is detected when all members have zero energy capacity."""
+def test_collapse_detected_with_low_sigma_y():
+    """Collapse is detected when members have very low sigma_y."""
     frame = frame_2d_simple.build()
     for m in frame.members:
-        m.energy_capacity = 0.0  # Any strain energy triggers failure
+        m.sigma_y = 1.0  # 1 Pa — fails under any real force
 
     result = run(frame, max_steps=50, collapse_method="threshold", collapse_threshold=-0.01)
     assert result.collapse_detected == True, "Expected collapse to be detected"
@@ -55,7 +55,7 @@ def test_no_collapse_without_failure():
     """With very high sigma_y, no collapse occurs and simulation runs to max_steps."""
     frame = frame_2d_simple.build()
     for m in frame.members:
-        m.energy_capacity = 1e20  # Indestructible members
+        m.sigma_y = 1e20  # Indestructible
 
     result = run(frame, max_steps=10, collapse_method="zscore")
     assert result.collapse_detected == False
@@ -67,7 +67,7 @@ def test_no_collapse_without_failure():
 def test_failed_sequence_order():
     """failed_sequence is populated in failure order."""
     frame = frame_2d_simple.build()
-    frame.members[0].energy_capacity = 0.0  # Only member 0 fails
+    frame.members[0].sigma_y = 1.0  # Only member 0 fails
 
     result = run(frame, max_steps=20, collapse_method="threshold", collapse_threshold=-999)
     if result.failed_sequence:
@@ -75,7 +75,7 @@ def test_failed_sequence_order():
             f"Expected member 0 first, got {result.failed_sequence}"
         print(f"  PASS: Failed sequence = {result.failed_sequence}")
     else:
-        print("  SKIP: No failures occurred (check sigma_y logic)")
+        print("  SKIP: No failures occurred")
 
 
 def test_unknown_scenario_raises():
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     print("=== Phase 6: Full Simulation Run ===")
     test_2d_simple_runs()
     test_3d_redundant_runs()
-    test_collapse_detected_with_low_energy_capacity()
+    test_collapse_detected_with_low_sigma_y()
     test_no_collapse_without_failure()
     test_failed_sequence_order()
     test_unknown_scenario_raises()

@@ -4,7 +4,7 @@ tests/test_phase4_failure.py
 Phase 4: Verify member failure detection and energy redistribution.
 
 Checks:
-  - A member with very low sigma_y fails immediately
+  - A member with very low sigma_y fails immediately under any load
   - check_and_apply_failures returns the correct member ID
   - Energy redistribution conserves total energy approximately
   - all_failed() correctly detects total collapse
@@ -21,23 +21,22 @@ from solver.redistribution import redistribute
 
 
 def test_member_fails_under_low_capacity():
-    """A member with energy_capacity = 0 J fails immediately under any load."""
+    """A member with sigma_y = 1 Pa fails immediately under any load."""
     frame = frame_2d_simple.build()
-    # Set energy capacity to 0 so any strain energy triggers failure
-    frame.members[0].energy_capacity = 0.0
+    frame.members[0].sigma_y = 1.0  # 1 Pa — fails under any real force
 
     es = solve(frame, step=0)
     newly_failed = check_and_apply_failures(frame, es)
 
     assert 0 in newly_failed, f"Expected member 0 to fail, got: {newly_failed}"
     assert frame.members[0].failed == True
-    print(f"  PASS: Member 0 failed as expected (energy_capacity=0)")
+    print(f"  PASS: Member 0 failed as expected (sigma_y=1 Pa, force={es.member_states[0].axial_force:.2f} N)")
 
 
 def test_failure_marks_member_in_frame():
     """After failure, frame.members[0].failed is True."""
     frame = frame_2d_simple.build()
-    frame.members[0].energy_capacity = 0.0
+    frame.members[0].sigma_y = 1.0
     es = solve(frame, step=0)
     check_and_apply_failures(frame, es)
     assert frame.members[0].failed == True
@@ -50,7 +49,7 @@ def test_redistribution_conserves_energy():
     (Not strictly conserved due to ODE discretization, but should be close.)
     """
     frame = frame_2d_simple.build()
-    frame.members[0].energy_capacity = 0.0
+    frame.members[0].sigma_y = 1.0
     es = solve(frame, step=0)
     check_and_apply_failures(frame, es)
 
