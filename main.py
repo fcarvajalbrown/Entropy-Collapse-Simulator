@@ -20,7 +20,7 @@ Arguments:
 import argparse
 import os
 
-from structure.frames import frame_2d_simple, frame_3d_redundant
+from structure.frames import frame_2d_simple, frame_3d_redundant, frame_pratt_bridge
 from simulation.runner import run
 from visualization.graph_view import plot_frame, plot_collapse_sequence
 from visualization.entropy_plot import plot_entropy
@@ -29,6 +29,7 @@ from visualization.entropy_plot import plot_entropy
 FRAME_MODULES = {
     "2d_simple":     frame_2d_simple,
     "3d_redundant":  frame_3d_redundant,
+    "pratt_bridge":  frame_pratt_bridge,
 }
 
 

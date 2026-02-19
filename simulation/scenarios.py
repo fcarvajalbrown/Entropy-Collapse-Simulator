@@ -15,7 +15,7 @@ To add a new scenario:
 
 from core.models import SimulationResult
 from simulation import runner
-from structure.frames import frame_2d_simple, frame_3d_redundant
+from structure.frames import frame_2d_simple, frame_3d_redundant, frame_pratt_bridge
 
 
 # ---------------------------------------------------------------------------
@@ -65,13 +65,37 @@ def scenario_3d_redundant(
     return runner.run(frame, max_steps=max_steps, collapse_method=collapse_method)
 
 
+def scenario_pratt_bridge(
+    max_steps: int = 200,
+    collapse_method: str = "zscore"
+) -> SimulationResult:
+    """
+    6-panel Pratt truss bridge under distributed traffic loading.
+
+    30m span, 4m height, 14 nodes, 25 members with differentiated
+    material grades per member type (chords, verticals, diagonals).
+    Best scenario for demonstrating entropy localization along a
+    progressive collapse path in a real engineering structure.
+
+    Args:
+        max_steps: Maximum simulation steps.
+        collapse_method: "zscore" or "threshold".
+
+    Returns:
+        SimulationResult from the runner.
+    """
+    frame = frame_pratt_bridge.build()
+    return runner.run(frame, max_steps=max_steps, collapse_method=collapse_method)
+
+
 # ---------------------------------------------------------------------------
 # Scenario registry
 # ---------------------------------------------------------------------------
 
 SCENARIOS: dict[str, callable] = {
-    "2d_simple": scenario_2d_simple,
-    "3d_redundant": scenario_3d_redundant,
+    "2d_simple":     scenario_2d_simple,
+    "3d_redundant":  scenario_3d_redundant,
+    "pratt_bridge":  scenario_pratt_bridge,
 }
 
 
