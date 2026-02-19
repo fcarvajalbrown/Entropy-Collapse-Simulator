@@ -117,7 +117,12 @@ def _transformation_matrix(member: Member, frame: FrameData) -> np.ndarray:
 
     # 3x3 rotation block
     # Reference vector for local y-axis
-    ref = np.array([0, 0, 1]) if abs(cz) < 0.99 else np.array([0, 1, 0])
+    if abs(cz) < 1e-10 and abs(cy) < 1e-10:
+        ref = np.array([0, 1, 0])
+    elif abs(cz) < 0.99:
+        ref = np.array([0, 0, 1])
+    else:
+        ref = np.array([0, 1, 0])
     local_x = np.array([cx, cy, cz])
     local_z = np.cross(local_x, ref)
     local_z /= np.linalg.norm(local_z)

@@ -42,13 +42,29 @@ def main():
             print(f"  {name}")
         return
 
+    from structure.frames import frame_2d_simple, frame_3d_redundant
+    frame_modules = {
+        "2d_simple": frame_2d_simple,
+        "3d_redundant": frame_3d_redundant,
+    }
+
     print(f"Running scenario: {args.scenario}")
     print(f"  Detection method : {args.method}")
     print(f"  Max steps        : {args.steps}")
     print()
 
-    result = run_scenario(
-        args.scenario,
+    frame = frame_modules[args.scenario].build()
+
+    # Apply sigma_y override if provided
+    if args.sigma_y is not None:
+        for m in frame.members:
+            m.sigma_y = args.sigma_y
+        print(f"  sigma_y override  : {args.sigma_y:.2e} Pa")
+        print()
+
+    from simulation.runner import run
+    result = run(
+        frame,
         max_steps=args.steps,
         collapse_method=args.method
     )
@@ -73,14 +89,7 @@ def main():
     final_energy = result.energy_history[-1]
     final_entropy = result.entropy_history[-1]
 
-    # Reconstruct a minimal frame reference for plotting
-    from simulation.scenarios import SCENARIOS
-    from structure.frames import frame_2d_simple, frame_3d_redundant
-    frame_modules = {
-        "2d_simple": frame_2d_simple,
-        "3d_redundant": frame_3d_redundant,
-    }
-    frame = frame_modules[args.scenario].build()
+    # frame already built above
 
     plot_frame(
         frame=frame,
@@ -137,6 +146,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--list", action="store_true",
         help="List available scenarios and exit"
+    )
+    parser.add_argument(
+        "--sigma-y", type=float, default=None,
+        help="Override sigma_y (yield stress in Pa) for all members. Default: 250 MPa steel."
     )
     return parser.parse_args()
 
