@@ -7,12 +7,11 @@ per-member strain energies using the full internal force vector.
 Strain energy is computed as:
     U_i = 0.5 * u_local^T * k_local * u_local
 
-where u_local are the member's 12 nodal displacements transformed
-to local coordinates. This correctly captures both axial and bending
-contributions — critical for frames where load is carried in bending.
+This captures both axial and bending contributions correctly.
 
-Internal force magnitude is taken as the Euclidean norm of f_local,
-which includes axial, shear, and moment components.
+MemberState.axial_force stores the true axial force (f_local[0]),
+not the full force magnitude. This keeps the failure criterion
+(axial_force >= sigma_y * A) physically meaningful.
 """
 
 import numpy as np
@@ -22,7 +21,8 @@ from structure.stiffness import (
     apply_boundary_conditions,
     _local_stiffness,
     _transformation_matrix,
-    _get_node
+    _get_node,
+    _member_length
 )
 
 
@@ -40,6 +40,7 @@ def solve(frame: FrameData, step: int) -> EnergyState:
     K = assemble_global_stiffness(frame)
     K = apply_boundary_conditions(K, frame)
     F = _build_load_vector(frame)
+    F = apply_boundary_conditions_to_force(F, frame)
     u = _solve_system(K, F)
 
     member_states = [
@@ -72,8 +73,8 @@ def _build_load_vector(frame: FrameData) -> np.ndarray:
 
 def _solve_system(K: np.ndarray, F: np.ndarray) -> np.ndarray:
     """
-    Solve the linear system Ku = F using numpy's least-squares solver.
-    Falls back gracefully if K is singular (collapsed structure).
+    Solve the linear system Ku = F.
+    Falls back to least-squares if K is singular.
 
     Args:
         K: Global stiffness matrix.
@@ -89,26 +90,56 @@ def _solve_system(K: np.ndarray, F: np.ndarray) -> np.ndarray:
     return u
 
 
+def apply_boundary_conditions_to_force(F: np.ndarray, frame: FrameData) -> np.ndarray:
+    """
+    Zero out force vector entries at constrained DOFs.
+
+    When apply_boundary_conditions sets K[dof,dof]=1 and K[dof,:]=0,
+    the system solves as u[dof] = F[dof]. If F[dof] is non-zero
+    (e.g. a load applied directly at a support), the result is a
+    spurious displacement equal to the load magnitude in meters.
+
+    This function ensures F[dof]=0 at all fixed DOFs so the solver
+    returns u[dof]=0 as expected for a constrained degree of freedom.
+
+    Args:
+        F: Global force vector (modified in-place).
+        frame: Frame with node boundary conditions.
+
+    Returns:
+        F (np.ndarray): Modified force vector.
+    """
+    for node in frame.nodes:
+        for dof in node.fixed_dofs:
+            F[node.id * 6 + dof] = 0.0
+    return F
+
+
 def _compute_member_state(member, u: np.ndarray, frame: FrameData) -> MemberState:
     """
-    Compute strain energy and internal force magnitude for a single member.
+    Compute strain energy and axial force for a single member.
 
-    Uses the full 12-DOF local stiffness formulation:
-        u_local = T * u_global  (transform displacements to local coords)
-        f_local = k_local * u_local  (internal force vector)
-        U_i = 0.5 * u_local^T * k_local * u_local  (strain energy)
+    Procedure:
+        1. Extract 12 global DOFs for the member's two nodes
+        2. Transform to local coordinates: u_local = T @ u_global
+        3. Compute internal forces: f_local = k_local @ u_local
+        4. Strain energy: U = 0.5 * u_local^T @ f_local
+        5. Axial force: f_local[0] (local x-direction)
 
-    This correctly captures axial, shear, and bending contributions.
-    Previously only axial projection was used, which gave zero energy
-    for bending-dominated members (e.g. horizontal beam under vertical load).
+    Axial force is stored in MemberState.axial_force. The failure criterion
+    (sigma_y * A) is compared against abs(axial_force) — compression members
+    have negative axial force, tension members positive.
+
+    Strain energy is always non-negative; any negative result from numerical
+    noise is clamped to zero.
 
     Args:
         member: Member to evaluate.
         u: Global displacement vector.
-        frame: Used to retrieve geometry for transformation matrix.
+        frame: Frame geometry.
 
     Returns:
-        MemberState with energy, force magnitude, deformation, and failed flag.
+        MemberState with strain energy, axial force, deformation, failed flag.
     """
     if member.failed:
         return MemberState(
@@ -119,37 +150,30 @@ def _compute_member_state(member, u: np.ndarray, frame: FrameData) -> MemberStat
             failed=True
         )
 
-    # Extract 12 global DOFs for this member (6 per node)
+    # Extract 12 global DOFs (6 per node)
     i = member.node_start * 6
-    j = member.node_end * 6
+    j = member.node_end   * 6
     u_global = np.concatenate([u[i:i+6], u[j:j+6]])
 
     # Transform to local coordinates
-    T = _transformation_matrix(member, frame)
+    T       = _transformation_matrix(member, frame)
     k_local = _local_stiffness(member, frame)
     u_local = T @ u_global
 
-    # Full internal force vector in local coordinates
+    # Internal force vector in local coordinates
     f_local = k_local @ u_local
 
     # Strain energy from full deformation (axial + bending)
     strain_energy = float(0.5 * u_local @ f_local)
 
-    # Axial force = local DOF 0 (f_local[0])
+    # Axial force: local DOF 0 (positive = tension, negative = compression)
     axial_force = float(f_local[0])
 
-    # Total internal force magnitude (includes shear and moment resultants)
-    force_magnitude = float(np.linalg.norm(f_local[:3]))
-
-    # Axial deformation for reference
+    # Axial deformation along member axis
     n_start = _get_node(frame, member.node_start)
-    n_end = _get_node(frame, member.node_end)
-    L = float(np.sqrt(
-        (n_end.x - n_start.x)**2 +
-        (n_end.y - n_start.y)**2 +
-        (n_end.z - n_start.z)**2
-    ))
-    axis = np.array([
+    n_end   = _get_node(frame, member.node_end)
+    L       = _member_length(member, frame)
+    axis    = np.array([
         n_end.x - n_start.x,
         n_end.y - n_start.y,
         n_end.z - n_start.z
@@ -158,8 +182,8 @@ def _compute_member_state(member, u: np.ndarray, frame: FrameData) -> MemberStat
 
     return MemberState(
         member_id=member.id,
-        strain_energy=max(strain_energy, 0.0),  # Clamp numerical noise
-        axial_force=force_magnitude,             # Total force magnitude
+        strain_energy=max(strain_energy, 0.0),
+        axial_force=axial_force,
         deformation=deformation,
         failed=False
     )
