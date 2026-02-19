@@ -57,7 +57,8 @@ entropy_collapse_simulator/
 │   └── scenarios.py        # Scenario registry
 ├── visualization/
 │   ├── graph_view.py        # 3D frame viewer with energy heatmap
-│   └── entropy_plot.py      # S, dS/dt, Gini index plots
+│   ├── entropy_plot.py      # S, dS/dt, Gini index plots
+│   └── animation.py         # Animated entropy evolution (GIF/MP4)
 ├── tests/                   # 7-phase test suite (29 tests, all passing)
 ├── main.py                  # CLI entry point
 └── requirements.txt
@@ -83,13 +84,22 @@ pip install -r requirements.txt
 # List available scenarios
 python main.py --list
 
-# Run a scenario
+# Run a scenario (displays plots interactively)
 python main.py --scenario 2d_simple
 python main.py --scenario 3d_redundant --method threshold --steps 200
 python main.py --scenario pratt_bridge --steps 100
 
-# Save figures to disk
+# Save figures to output_figures/
 python main.py --scenario pratt_bridge --save
+
+# Produce an animation of the entropy evolution
+python main.py --scenario pratt_bridge --animate --save
+
+# Animation with custom settings
+python main.py --scenario pratt_bridge --animate --animate-fmt mp4 --fps 15 --save
+
+# Control incremental loading (higher load-step = faster failure onset)
+python main.py --scenario pratt_bridge --load-step 0.2 --animate --save
 ```
 
 **Arguments:**
@@ -99,7 +109,28 @@ python main.py --scenario pratt_bridge --save
 | `--scenario` | `2d_simple` | Frame to simulate |
 | `--method` | `zscore` | Collapse detection: `zscore` or `threshold` |
 | `--steps` | `100` | Maximum simulation steps |
-| `--save` | off | Save figures to `output_figures/` |
+| `--load-step` | `0.2` | Load factor increment per step. Set to `0.0` for static loading at design load. Increase to drive faster progressive failure. |
+| `--save` | off | Save all figures to `output_figures/` |
+| `--animate` | off | Produce an animation of the entropy evolution (always saved to file) |
+| `--animate-fmt` | `gif` | Animation format: `gif` (requires Pillow) or `mp4` (requires ffmpeg) |
+| `--fps` | `10` | Animation frames per second |
+
+### Animation Output
+
+The animation shows three entropy metrics evolving step by step with a sweeping marker:
+
+1. **S / S_max** — normalized structural entropy. Drops as energy localizes.
+2. **dS / dt** — rate of change. A large negative spike signals imminent collapse.
+3. **Gini index** — energy concentration measure. Rises toward 1.0 as collapse approaches.
+
+Member failure events are marked with grey dotted lines. The detected collapse step is marked with a red dashed line. Output file is saved to `output_figures/collapse_<scenario>.gif` (or `.mp4`) when `--save` is set, otherwise to the current directory.
+
+**GIF dependency:**
+```bash
+pip install Pillow
+```
+
+**MP4 dependency:** Install [ffmpeg](https://ffmpeg.org/) and ensure it is on your system PATH.
 
 ---
 
