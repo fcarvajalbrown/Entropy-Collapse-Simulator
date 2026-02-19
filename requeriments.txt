@@ -1,0 +1,15 @@
+# requirements.txt
+# Entropy-Based Progressive Collapse Simulator
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# To build .exe:
+#   pip install pyinstaller
+#   pyinstaller --onefile --windowed main.py
+
+numpy>=1.26
+scipy>=1.12
+matplotlib>=3.8
+networkx>=3.2
+pyinstaller>=6.0   # Only needed for .exe build, not for running
