@@ -57,8 +57,7 @@ entropy_collapse_simulator/
 │   └── scenarios.py        # Scenario registry
 ├── visualization/
 │   ├── graph_view.py        # 3D frame viewer with energy heatmap
-│   ├── entropy_plot.py      # S, dS/dt, Gini index plots
-│   └── animation.py         # Animated entropy evolution (GIF/MP4)
+│   └── entropy_plot.py      # S, dS/dt, Gini index plots
 ├── tests/                   # 7-phase test suite (29 tests, all passing)
 ├── main.py                  # CLI entry point
 └── requirements.txt
@@ -84,22 +83,13 @@ pip install -r requirements.txt
 # List available scenarios
 python main.py --list
 
-# Run a scenario (displays plots interactively)
+# Run a scenario
 python main.py --scenario 2d_simple
 python main.py --scenario 3d_redundant --method threshold --steps 200
 python main.py --scenario pratt_bridge --steps 100
 
-# Save figures to output_figures/
+# Save figures to disk
 python main.py --scenario pratt_bridge --save
-
-# Produce an animation of the entropy evolution
-python main.py --scenario pratt_bridge --animate --save
-
-# Animation with custom settings
-python main.py --scenario pratt_bridge --animate --animate-fmt mp4 --fps 15 --save
-
-# Control incremental loading (higher load-step = faster failure onset)
-python main.py --scenario pratt_bridge --load-step 0.2 --animate --save
 ```
 
 **Arguments:**
@@ -109,28 +99,7 @@ python main.py --scenario pratt_bridge --load-step 0.2 --animate --save
 | `--scenario` | `2d_simple` | Frame to simulate |
 | `--method` | `zscore` | Collapse detection: `zscore` or `threshold` |
 | `--steps` | `100` | Maximum simulation steps |
-| `--load-step` | `0.2` | Load factor increment per step. Set to `0.0` for static loading at design load. Increase to drive faster progressive failure. |
-| `--save` | off | Save all figures to `output_figures/` |
-| `--animate` | off | Produce an animation of the entropy evolution (always saved to file) |
-| `--animate-fmt` | `gif` | Animation format: `gif` (requires Pillow) or `mp4` (requires ffmpeg) |
-| `--fps` | `10` | Animation frames per second |
-
-### Animation Output
-
-The animation shows three entropy metrics evolving step by step with a sweeping marker:
-
-1. **S / S_max** — normalized structural entropy. Drops as energy localizes.
-2. **dS / dt** — rate of change. A large negative spike signals imminent collapse.
-3. **Gini index** — energy concentration measure. Rises toward 1.0 as collapse approaches.
-
-Member failure events are marked with grey dotted lines. The detected collapse step is marked with a red dashed line. Output file is saved to `output_figures/collapse_<scenario>.gif` (or `.mp4`) when `--save` is set, otherwise to the current directory.
-
-**GIF dependency:**
-```bash
-pip install Pillow
-```
-
-**MP4 dependency:** Install [ffmpeg](https://ffmpeg.org/) and ensure it is on your system PATH.
+| `--save` | off | Save figures to `output_figures/` |
 
 ---
 
@@ -217,6 +186,42 @@ python tests/run_all_tests.py
 | 5 — Entropy | S formula, dS sign, normalized entropy, Gini index |
 | 6 — Simulation | End-to-end runs, collapse detection, failure sequence order |
 | 7 — Visualization | Plot functions save without error, collapse overlay renders |
+
+Individual phases can also be run directly:
+
+```bash
+python tests/test_phase1_models.py
+python tests/test_phase2_stiffness.py
+python tests/test_phase3_solver.py
+python tests/test_phase4_failure.py
+python tests/test_phase5_entropy.py
+python tests/test_phase6_simulation.py
+python tests/test_phase7_visualization.py
+```
+
+---
+
+## Benchmark Validation
+
+Validates the FEM solver against two independent references:
+
+1. **Analytical** (2D beam only) — closed-form Euler-Bernoulli: `delta = PL³/48EI`, `U = P²L³/96EI`
+2. **Independent NumPy solver** — direct stiffness reimplementation with no shared code from `solver/`
+
+```bash
+pip install reportlab
+python benchmark.py
+```
+
+Outputs `benchmark_report.pdf` and 8 publication figures to `output_figures/`.
+
+| Frame | Displacement error | Strain energy error |
+|---|---|---|
+| 2D Simple Beam | 0.0000% | 0.0000% |
+| 3D Redundant Frame | 0.1076% | 0.1076% |
+| Pratt Bridge | 0.4132% | 0.4404% |
+
+Errors in the 3D frames are floating-point rounding in the transformation matrices — expected for independent implementations.
 
 ---
 
