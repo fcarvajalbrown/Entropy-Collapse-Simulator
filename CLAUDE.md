@@ -94,11 +94,20 @@ frames -> stiffness -> solver -> entropy/analysis -> simulation -> visualization
 - All code, comments, and docs are in English.
 - Plain ASCII in source and docs (no emojis; avoid em-dashes, including in
   generated manuscript prose).
-- Add new behaviour to the matching test phase under `tests/`; keep all 9 phases
-  green. Keep tests deterministic.
+- Add new behaviour to the matching test phase under `tests/`; keep all 10
+  phases green. Keep tests deterministic.
 - Numbers in the README/manuscript are reproducible from `benchmark.py`,
   `main.py`, and `manuscript/generate_figures.py`; if behaviour changes,
   regenerate rather than hand-editing reported values.
+- **Git commits:** plain messages, no AI co-author or attribution trailer ever
+  (this overrides any default to add `Co-Authored-By`).
+
+## Repo and license
+
+- License: **GPL-3.0-or-later** (`LICENSE`).
+- Remote: `github.com/fcarvajalbrown/Entropy-Collapse-Simulator` (branch `main`),
+  pushed over HTTPS using `gh` as the git credential helper. CI is
+  `.github/workflows/tests.yml` (runs the suite + `benchmark.py` on push/PR).
 
 ## Scenarios and reference values
 
