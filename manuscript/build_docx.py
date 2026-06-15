@@ -538,11 +538,6 @@ def build():
         "F.C.B. conceived the method, implemented the software, performed the "
         "analyses, and wrote the manuscript.")
     label_body(doc, "Funding:", "This research received no external funding.")
-    label_body(doc, "Use of AI tools:",
-        "An AI coding assistant (Anthropic Claude) was used to help implement "
-        "the software, run the analyses, and draft the manuscript. The author "
-        "directed the work, verified all results, and is solely responsible for "
-        "the content. No AI tool is listed as an author.")
     label_body(doc, "Acknowledgments:",
         "The author thanks G. Araya-Letelier for early feedback on scope and "
         "novelty.")
