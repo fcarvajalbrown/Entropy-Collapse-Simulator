@@ -52,7 +52,7 @@ def plot_frame(
 
     energy_map = _build_energy_map(energy_state)
     norm = mcolors.Normalize(vmin=0.0, vmax=max(energy_map.values(), default=1.0))
-    cmap = cm.get_cmap("RdYlBu_r")
+    cmap = plt.get_cmap("RdYlBu_r")  # stable API (cm.get_cmap removed in mpl 3.9+)
 
     _draw_members(ax, frame, energy_map, norm, cmap)
     _draw_nodes(ax, frame)
