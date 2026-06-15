@@ -1,7 +1,11 @@
 """
 structure/frames/frame_2d_simple.py
 ====================================
-Defines a simple 2D three-member truss for baseline validation.
+Defines a simple 2D two-span beam for baseline validation.
+
+This is a beam, not a truss: the members are rigid-jointed Euler-Bernoulli
+frame elements and the transverse mid-span load is carried entirely by
+bending. It is the degenerate, non-redundant reference case.
 
 Geometry (all z = 0.0):
 
@@ -23,14 +27,14 @@ from core.models import FrameData, Node, Member, Load, STEEL_S275
 
 def build() -> FrameData:
     """
-    Construct and return the simple 2D truss FrameData.
+    Construct and return the two-span beam FrameData.
 
     Returns:
         FrameData with 3 nodes, 2 members, boundary conditions,
         and a single downward point load at the central node.
     """
     return FrameData(
-        name="2D Simple Truss",
+        name="Two-span beam",
         nodes=_define_nodes(),
         members=_define_members(),
         loads=_define_loads()
@@ -44,10 +48,14 @@ def _define_nodes() -> list[Node]:
     Returns:
         List of 3 Node objects.
     """
+    # Planar (XY) analysis: constrain out-of-plane DOFs (2=uz, 3=rx, 4=ry)
+    # at every node so the global stiffness matrix is non-singular. The
+    # in-plane rotation (5=rz) is left free to capture bending.
+    PLANAR_DOFS = [2, 3, 4]
     return [
-        Node(id=0, x=0.0,  y=0.0, z=0.0, fixed_dofs=[0, 1]),
-        Node(id=1, x=5.0,  y=0.0, z=0.0, fixed_dofs=[]),
-        Node(id=2, x=10.0, y=0.0, z=0.0, fixed_dofs=[0, 1]),
+        Node(id=0, x=0.0,  y=0.0, z=0.0, fixed_dofs=[0, 1] + PLANAR_DOFS),
+        Node(id=1, x=5.0,  y=0.0, z=0.0, fixed_dofs=PLANAR_DOFS),
+        Node(id=2, x=10.0, y=0.0, z=0.0, fixed_dofs=[0, 1] + PLANAR_DOFS),
     ]
 
 

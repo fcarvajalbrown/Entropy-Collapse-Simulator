@@ -1,0 +1,13 @@
+# requirements.lock
+# Exact dependency versions used to produce the reported results.
+# Tested on Python 3.14.2 (Windows 10). For a reproducible environment:
+#   python -m venv .venv && . .venv/Scripts/activate   (Windows)
+#   pip install -r requirements.lock
+#
+# python-docx is needed only to rebuild the Word manuscript
+# (manuscript/build_docx.py); it is not required to run the analysis.
+
+numpy==2.4.2
+matplotlib==3.10.8
+Pillow==12.1.1
+python-docx==1.2.0

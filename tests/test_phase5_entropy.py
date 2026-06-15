@@ -47,7 +47,7 @@ def test_entropy_max_when_uniform():
     expected = math.log(n)
     assert abs(record.entropy - expected) < 1e-6, \
         f"Expected S={expected:.4f}, got {record.entropy:.4f}"
-    print(f"  PASS: S = {record.entropy:.6f} ≈ ln({n}) = {expected:.6f}")
+    print(f"  PASS: S = {record.entropy:.6f} ~= ln({n}) = {expected:.6f}")
 
 
 def test_delta_entropy_negative_when_energy_concentrates():

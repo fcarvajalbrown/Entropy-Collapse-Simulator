@@ -14,7 +14,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import numpy as np
-from structure.frames import frame_2d_simple, frame_3d_redundant
+from structure.frames import frame_2d_simple, frame_building_2d
 from structure.stiffness import assemble_global_stiffness, apply_boundary_conditions
 
 
@@ -35,21 +35,21 @@ def test_k_symmetry_2d():
     print("  PASS: K is symmetric")
 
 
-def test_k_shape_3d():
-    """K has correct shape for 3D redundant frame."""
-    frame = frame_3d_redundant.build()
+def test_k_shape_building():
+    """K has correct shape for the planar moment frame."""
+    frame = frame_building_2d.build()
     K = assemble_global_stiffness(frame)
     expected = len(frame.nodes) * 6
     assert K.shape == (expected, expected)
-    print(f"  PASS: K shape correct 3D ({expected}x{expected})")
+    print(f"  PASS: K shape correct building ({expected}x{expected})")
 
 
-def test_k_symmetry_3d():
-    """K is symmetric for 3D redundant frame."""
-    frame = frame_3d_redundant.build()
+def test_k_symmetry_building():
+    """K is symmetric for the planar moment frame."""
+    frame = frame_building_2d.build()
     K = assemble_global_stiffness(frame)
-    assert np.allclose(K, K.T, atol=1e-6), "K is not symmetric for 3D frame"
-    print("  PASS: K is symmetric (3D)")
+    assert np.allclose(K, K.T, atol=1e-6), "K is not symmetric for building frame"
+    print("  PASS: K is symmetric (building frame)")
 
 
 def test_boundary_conditions_2d():
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     print("=== Phase 2: Stiffness Assembly ===")
     test_k_shape_2d()
     test_k_symmetry_2d()
-    test_k_shape_3d()
-    test_k_symmetry_3d()
+    test_k_shape_building()
+    test_k_symmetry_building()
     test_boundary_conditions_2d()
     print("All Phase 2 tests passed.\n")

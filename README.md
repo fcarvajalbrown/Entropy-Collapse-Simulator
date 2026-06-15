@@ -1,246 +1,256 @@
-# Entropy-Based Progressive Collapse Simulator
+# Entropy Robustness Index — Progressive-Collapse Robustness for Steel Frames (FEM, Python)
 
-A structural engineering research tool that uses **Shannon entropy of strain energy distribution** as a collapse predictor for frame structures under progressive member failure. Built on a full 3D Euler-Bernoulli FEM solver with modular architecture designed for extensibility and scientific reproducibility.
+> A calibration-free, dimensionless **structural robustness** index for planar
+> steel **frames and trusses**, computed from the **Shannon entropy of the
+> strain-energy distribution** under the **alternate-load-path** (notional
+> member-removal) procedure. Built on a verified linear-elastic
+> **finite element** (Euler-Bernoulli) solver, in pure Python.
 
----
+[![tests](https://github.com/fcarvajalbrown/Entropy-Collapse-Simulator/actions/workflows/tests.yml/badge.svg)](https://github.com/fcarvajalbrown/Entropy-Collapse-Simulator/actions/workflows/tests.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![validation](https://img.shields.io/badge/solver%20validation-0.0000%25-brightgreen.svg)](validation/validation_report.md)
 
-## Motivation
+**What it does, in one line:** tell whether a frame can lose a member without
+collapsing, with a single number `R_S` in `[0, 1]` that needs no threshold
+calibration.
 
-Current practice in progressive collapse analysis relies primarily on **displacement-based criteria** — structures are flagged as collapsed when nodal displacements exceed empirical thresholds (typically θ = 0.15–0.20 rad chord rotation per GSA guidelines). A comprehensive 2024 review by Feng et al. in the *Journal of Building Engineering* notes that no universally accepted collapse criterion exists, with researchers using displacement, resistance, and energy-based approaches inconsistently across the literature.
+Three analysis modes from one CLI: a **progressive-collapse simulation** with
+entropy-based detection, the **Entropy Robustness Index** by member removal, and
+a **head-to-head comparison** of the displacement, demand-capacity-ratio (DCR),
+energy, and entropy collapse criteria. The full mathematical basis is in
+[`THEORY.md`](THEORY.md); the journal manuscript is in [`manuscript/`](manuscript/).
 
-This tool proposes **structural entropy** as a scalar, dimensionless collapse indicator:
-
-```
-S = -Σ pᵢ ln(pᵢ)     where pᵢ = Uᵢ / Σ U
-```
-
-Where `Uᵢ` is the strain energy in member `i`. When the structure is healthy, strain energy is distributed across members (high entropy). As failure progresses and energy localizes into fewer members, entropy drops sharply. A large negative spike in `dS/dt` signals imminent collapse — potentially earlier than displacement-based detection.
-
-This approach is distinct from vibration-based Shannon entropy methods used in structural health monitoring (Moreno-Gomez et al., 2018; Lin & Laínez, 2018), which apply entropy to acceleration time-series rather than static strain energy fields. The application of Shannon entropy to quasi-static strain energy redistribution during progressive collapse is the novel contribution of this tool.
-
----
-
-## Key Features
-
-- Full 3D Euler-Bernoulli FEM solver with correct axial + bending stiffness assembly
-- Combined axial and bending stress failure criterion: `σ_max = |N|/A + |M_max| · c / I`
-- Per-step entropy computation: S, dS/dt, normalized entropy, Gini index
-- Two collapse detection methods: z-score (adaptive) and threshold (simple)
-- 3D visualization with strain energy heatmap per member
-- Entropy evolution plots with collapse marker
-- Material dataclass (`Material`) for scientifically rigorous per-member property definition
-- Standalone `.exe` build via PyInstaller
+> Keywords: structural engineering, finite element method, progressive collapse,
+> structural robustness, redundancy, alternate load path, Shannon entropy,
+> truss solver, frame analysis, reproducible research.
 
 ---
 
-## Project Structure
+## Results at a glance
+
+| Structure | Robustness `R_S` | Reading |
+|---|---|---|
+| Two-span beam (non-redundant) | **0.00** | any member loss collapses it |
+| 2-bay 3-story moment frame | **0.72** | redundant; no single loss is fatal |
+| X-braced truss bridge | **0.79** | redundant; worst single loss localizes most |
+
+- **Verified:** matches closed-form solutions and an independent solver to **0.0000%**.
+- **Novel, with evidence:** `R_S` rises monotonically with the degree of static
+  indeterminacy, and its member-criticality ranking is *not* a re-encoding of the
+  usual compliance-based importance (the two even anti-correlate for multi-bay
+  frames).
+- **Reproducible:** every number in the paper is computed at build time; 10 test
+  phases; pinned dependencies.
+
+---
+
+## Contribution
+
+Shannon entropy of strain/strain-energy distributions has been used before for
+metamaterials, fatigue and vibration-based damage detection. The contribution
+here is narrower and practice-oriented:
+
+1. **Entropy Robustness Index `R_S`** — a calibration-free, dimensionless
+   redundancy measure in `[0, 1]` obtained by combining the normalized
+   strain-energy entropy with the alternate-load-path method (GSA 2003;
+   UFC 4-023-03). `R_S -> 1` is robust (a single member loss barely changes how
+   evenly energy is shared); `R_S -> 0` is fragile.
+2. **A four-criteria comparison** — entropy versus the displacement, DCR and
+   energy criteria on the same incremental analysis, extending the comparative
+   study of Feng et al. (2024), who did not include an information-theoretic
+   criterion.
+3. **Verified engine** — exact agreement with closed-form solutions and an
+   independent dual solver (Section *Validation*).
+
+The key practical point: the displacement, DCR and energy criteria each need a
+structure-specific threshold; `R_S` and the entropy criterion do not.
+
+---
+
+## The index in one equation
+
+For the normalized strain-energy distribution `p_i = U_i / sum(U)` over the `N`
+active members, the normalized entropy is
 
 ```
-entropy_collapse_simulator/
-├── core/
-│   └── models.py           # Shared dataclasses: Material, Node, Member, FrameData, etc.
-├── structure/
-│   ├── stiffness.py         # Global K assembly, transformation matrix, BCs
-│   └── frames/
-│       ├── frame_2d_simple.py       # 3-node 2-member simply-supported beam
-│       ├── frame_3d_redundant.py    # 5-node 8-member space frame with apex load
-│       └── frame_pratt_bridge.py    # 14-node 25-member 6-panel Pratt truss (30m span)
-├── solver/
-│   ├── equilibrium.py       # Ku=F solver, full 12-DOF strain energy computation
-│   ├── failure.py           # Combined stress failure criterion, member marking
-│   └── redistribution.py    # ODE-based energy transfer after failure
-├── entropy/
-│   ├── metrics.py           # S, dS/dt, normalized entropy
-│   └── localization.py      # Collapse detection (zscore/threshold), Gini index
-├── simulation/
-│   ├── runner.py            # Main simulation loop
-│   └── scenarios.py        # Scenario registry
-├── visualization/
-│   ├── graph_view.py        # 3D frame viewer with energy heatmap
-│   └── entropy_plot.py      # S, dS/dt, Gini index plots
-├── tests/                   # 7-phase test suite (29 tests, all passing)
-├── main.py                  # CLI entry point
-└── requirements.txt
+H = -sum_i p_i ln(p_i) / ln(N)      in [0, 1]
 ```
 
-All modules communicate only through `core/models.py` dataclasses — no cross-module imports.
+Notionally remove each primary member `k`, re-analyse, and record the survivors'
+normalized entropy `H_k`. Then
+
+```
+R_S = mean_k H_k          (Entropy Robustness Index)
+```
+
+with `H_k = 0` when removing `k` turns the frame into a mechanism.
+
+---
+
+## Scope
+
+- **Planar (2D)** frames in the global X-Y plane.
+- **First-order, linear-elastic, quasi-static** analysis.
+- Euler-Bernoulli frame element with axial and in-plane bending stiffness.
+
+Out of scope (see [`THEORY.md`](THEORY.md), *Limitations*): plasticity,
+second-order/P-Delta and catenary action, dynamics, and connection failure.
+Linear-static alternate-load-path analysis is an accepted (conservative) code
+method; the tool does not claim to reproduce the large-deformation reserve of
+physical column-loss tests, and it does not claim predictive lead time over the
+standard criteria.
 
 ---
 
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt   # numpy, matplotlib, Pillow
 ```
-
-**Requirements:** `numpy`, `scipy`, `matplotlib`, `networkx`, `pyinstaller`
 
 ---
 
 ## Usage
 
+Three analysis modes via `--mode`:
+
 ```bash
-# List available scenarios
+# List frames
 python main.py --list
 
-# Run a scenario
-python main.py --scenario 2d_simple
-python main.py --scenario 3d_redundant --method threshold --steps 200
-python main.py --scenario pratt_bridge --steps 100
+# 1) Progressive-collapse simulation with entropy-based detection
+python main.py --mode simulate --scenario pratt_bridge --save
 
-# Save figures to disk
-python main.py --scenario pratt_bridge --save
+# 2) Entropy Robustness Index (alternate load path)
+python main.py --mode robustness --scenario building_2d
+
+# 3) Four-criteria comparison
+python main.py --mode criteria --scenario pratt_bridge --steps 40 --load-step 0.15
 ```
 
-**Arguments:**
+Selected arguments:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--scenario` | `2d_simple` | Frame to simulate |
-| `--method` | `zscore` | Collapse detection: `zscore` or `threshold` |
-| `--steps` | `100` | Maximum simulation steps |
+| `--mode` | `simulate` | `simulate`, `robustness`, or `criteria` |
+| `--scenario` | `2d_simple` | `2d_simple`, `building_2d`, `pratt_bridge` |
+| `--method` | `zscore` | Detection for simulate mode: `zscore` or `threshold` |
+| `--steps` | `100` | Max steps (simulate / criteria) |
+| `--load-step` | `0.2` | Load-factor increment per step |
 | `--save` | off | Save figures to `output_figures/` |
 
 ---
 
-## Frames
+## Scenarios
 
-### 2D Simple Truss
-3-node, 2-member simply-supported beam. 50 kN midspan load. Used for baseline validation — verifies that bending-dominated response is correctly captured (a common FEM pitfall for horizontal members under vertical load).
-
-### 3D Redundant Space Frame
-5-node, 8-member pyramid frame with 4 pinned base corners and a free apex. 200 kN downward apex load. Tests energy redistribution across multiple load paths — the redundancy keeps entropy high until multiple members fail.
-
-### Pratt Truss Bridge
-14 nodes, 25 members, 6-panel 30m span with differentiated materials per member type:
-
-| Member type | Material | Rationale |
+| Scenario | Description | R_S |
 |---|---|---|
-| Bottom chord | S355, A=0.0155 m² | Tension dominant, W360×122 equivalent |
-| Top chord | S355, A=0.0123 m² | Compression dominant, W310×97 equivalent |
-| Verticals | S275, A=0.0066 m² | Secondary members, W200×52 equivalent |
-| Diagonals | S355, A=0.0114 m² | Primary load path, W250×89 equivalent |
-
-600 kN total distributed traffic load (100 kN per interior bottom chord node, 50 kN at supports). Under standard S355 steel, no collapse occurs — this is physically correct. Reduce material grade to observe progressive failure sequence and entropy localization.
+| `2d_simple` | Two-span beam (frame elements). Non-redundant: any member loss collapses it. | 0.00 |
+| `building_2d` | Planar 2-bay, 3-story steel moment frame. Redundant; column-removal demo. | 0.72 |
+| `building_large` | Larger 3-bay, 6-story moment frame (28 nodes, 42 members). Scalability case. | 0.78 |
+| `pratt_bridge` | 6-panel 30 m pin-jointed truss, X-braced to be statically indeterminate (redundant). | 0.79 |
 
 ---
 
-## Adding New Frames
+## Project structure
 
-1. Create `structure/frames/frame_name.py`
-2. Define materials using `dataclasses.replace(STEEL_S275, ...)` or a custom `Material`
-3. Implement `build() -> FrameData` with nodes, members, loads
-4. For 2D frames in the XY plane: add `fixed_dofs=[2, 3, 4]` to all nodes to constrain out-of-plane DOFs
-5. Register in `simulation/scenarios.py` and `main.py`
+```
+core/            # shared dataclasses (Material, Node, Member, FrameData, ...)
+structure/
+  stiffness.py   # planar Euler-Bernoulli assembly, transformation, BCs
+  frames/        # 2d_simple, building_2d, pratt_bridge
+solver/
+  equilibrium.py # Ku=F solve, per-member strain energy (solve / solve_full)
+  failure.py     # combined axial+bending stress failure criterion
+entropy/
+  metrics.py     # S, dS, normalized entropy, max entropy
+  localization.py# causal z-score / threshold detection, Gini index
+  robustness.py  # Entropy Robustness Index R_S (alternate load path)
+analysis/
+  criteria.py    # four-criteria head-to-head comparison
+  importance.py  # dH_k vs compliance importance (Spearman correlation)
+  parametric.py  # R_S vs static indeterminacy; threshold/step-size sweeps
+simulation/
+  runner.py      # progressive-collapse loop (member removal + re-analysis)
+  scenarios.py   # scenario registry
+visualization/   # frame view, entropy plots, animation
+benchmark.py     # validation harness (analytical + independent dual solver)
+THEORY.md        # mathematical basis
+main.py          # CLI entry point
+```
 
-**Important:** Loads applied at supported nodes are automatically zeroed during solve (boundary condition enforcement). This is correct FEM behavior — do not apply loads at pinned/roller support nodes unless you intend to load them before constraints are applied.
-
----
-
-## Collapse Detection Methods
-
-**Z-score (recommended for research):** Flags collapse when `dS` deviates beyond N standard deviations from the rolling mean. Adaptive — does not require manual threshold calibration.
-
-**Threshold:** Flags collapse when `dS < -threshold`. Simple and fast, requires calibration per frame.
-
----
-
-## Scientific Context
-
-### Relation to Existing Literature
-
-**Displacement-based criteria** (GSA 2003, UFC 4-023-03) remain the standard in practice and are well-studied for RC frames (Feng et al., 2024; Parisi et al., 2020). They are empirically validated but require structure-specific calibration of drift limits.
-
-**Energy-based methods** have been applied to dynamic progressive collapse analysis via the Energy Balance Method (EBM), where work done by gravity loads is compared to strain energy capacity (Feng et al., 2024). This tool extends the energy-based philosophy into the information-theoretic domain — rather than comparing total energy to a capacity, it measures the *distribution* of energy across members.
-
-**Entropy in structural engineering** has been applied primarily to vibration signal processing for damage detection (Moreno-Gomez et al., *Applied Sciences*, 2018; Lin & Laínez, *Entropy*, 2018; Amezquita-Sanchez et al., 2021). These methods apply entropy to time-domain acceleration signals, not to static strain energy fields. The cross-sample entropy SHM system by Lin & Laínez (2018) demonstrated damage localization in 3D multi-bay frames using MSCE of floor response signals, establishing entropy as a viable structural indicator.
-
-**This tool's novel position:** Applying Shannon entropy directly to the quasi-static strain energy distribution `{pᵢ}` during progressive member removal. The Gini index of `{pᵢ}` supplements entropy as a concentration measure, giving both a mean-field view (S) and an inequality measure (Gini) of the structural state.
-
-### Limitations
-
-- Linear elastic only — no plasticity, catenary action, or geometric nonlinearity
-- Quasi-static — no dynamic amplification (no DAF)
-- 6-DOF Euler-Bernoulli elements — no shear deformation (Timoshenko), no torsion
-- Failure criterion is member-level stress — no connection or joint failure
-- Energy redistribution via ODE coupling is phenomenological, not derived from equilibrium
-
-These are appropriate simplifications for a research prototype demonstrating the entropy indicator concept. Extension to nonlinear dynamic analysis is the natural next step.
+All modules communicate only through `core/models.py` dataclasses.
 
 ---
 
-## Test Suite
+## Validation
 
-7 phases, 29 tests:
+```bash
+python benchmark.py            # prints tables, writes validation/validation_report.md
+python benchmark.py --figures  # also saves output_figures/validation_errors.png
+```
+
+Two independent tiers:
+
+**Tier 1 - Analytical (exact).** The displacement-method element is exact for
+nodal point loads, so closed-form cases match to floating point:
+
+| Case | Displacement error | Strain-energy error |
+|---|---|---|
+| Simply-supported beam (`PL^3/48EI`) | 0.0000% | 0.0000% |
+| Fixed-fixed beam (`PL^3/192EI`) | 0.0000% | 0.0000% |
+| Cantilever (`PL^3/3EI`) | 0.0000% | 0.0000% |
+
+**Tier 2 - Independent dual solver.** A from-scratch 3-DOF-per-node planar
+frame solver (no shared code) reproduces the redundant frames:
+
+| Frame | Displacement error | Strain-energy error |
+|---|---|---|
+| 2D Moment Frame (2-bay, 3-story) | 0.0000% | 0.0000% |
+| 2D Moment Frame (3-bay, 6-story) | 0.0000% | 0.0000% |
+| Redundant truss bridge | 0.0000% | 0.0000% |
+
+A third tier validates the quantities `R_S` actually uses: the per-member
+distribution `{p_i}`, post-removal alternate-load-path states, the failure
+criterion, and the stability (mechanism) test, all against independent
+calculations. The Ziemian & Ziemian steel benchmark frames (Data in Brief, 2021) are cited as
+a recognized external reference; their verified results are second-order
+(P-Delta), outside this first-order solver's modelling scope, and are
+recommended for future cross-checks rather than reproduced here.
+
+---
+
+## Tests
 
 ```bash
 python tests/run_all_tests.py
 ```
 
-| Phase | Coverage |
-|---|---|
-| 1 — Models | Dataclass instantiation, Material properties, frame build() |
-| 2 — Stiffness | K shape, symmetry, boundary condition enforcement |
-| 3 — Solver | Displacement correctness, strain energy magnitude, 3D frame |
-| 4 — Failure | Combined stress criterion, member flag, energy conservation |
-| 5 — Entropy | S formula, dS sign, normalized entropy, Gini index |
-| 6 — Simulation | End-to-end runs, collapse detection, failure sequence order |
-| 7 — Visualization | Plot functions save without error, collapse overlay renders |
-
-Individual phases can also be run directly:
-
-```bash
-python tests/test_phase1_models.py
-python tests/test_phase2_stiffness.py
-python tests/test_phase3_solver.py
-python tests/test_phase4_failure.py
-python tests/test_phase5_entropy.py
-python tests/test_phase6_simulation.py
-python tests/test_phase7_visualization.py
-```
-
----
-
-## Benchmark Validation
-
-Validates the FEM solver against two independent references:
-
-1. **Analytical** (2D beam only) — closed-form Euler-Bernoulli: `delta = PL³/48EI`, `U = P²L³/96EI`
-2. **Independent NumPy solver** — direct stiffness reimplementation with no shared code from `solver/`
-
-```bash
-pip install reportlab
-python benchmark.py
-```
-
-Outputs `benchmark_report.pdf` and 8 publication figures to `output_figures/`.
-
-| Frame | Displacement error | Strain energy error |
-|---|---|---|
-| 2D Simple Beam | 0.0000% | 0.0000% |
-| 3D Redundant Frame | 0.1076% | 0.1076% |
-| Pratt Bridge | 0.4132% | 0.4404% |
-
-Errors in the 3D frames are floating-point rounding in the transformation matrices — expected for independent implementations.
-
----
-
-## Building a Standalone Executable
-
-```bash
-pip install pyinstaller
-pyinstaller --onefile main.py
-```
-
-Output: `dist/main.exe` (Windows) or `dist/main` (Linux/macOS). No Python installation required on target machine.
+Ten phases: models, stiffness, solver, failure/re-analysis, entropy metrics,
+simulation, visualization, robustness index, criteria comparison, and novelty
+studies (importance correlation, redundancy sweep, step-size sensitivity).
 
 ---
 
 ## References
 
-- Feng, D. et al. (2024). *Physically-based collapse failure criteria in progressive collapse analyses of random-parameter multi-story RC structures.* Journal of Building Engineering. https://doi.org/10.1016/j.jobe.2024.019412
-- Moreno-Gomez, A. et al. (2018). *EMD-Shannon entropy-based methodology to detect incipient damages in a truss structure.* Applied Sciences, 8(11), 2068.
-- Lin, T.-K. & Laínez, A.G. (2018). *Entropy-based structural health monitoring system for damage detection in multi-bay three-dimensional structures.* Entropy, 20(1), 49.
-- Amezquita-Sanchez, J.P. et al. (2021). *Entropy algorithms for detecting incipient damage in high-rise buildings subjected to dynamic vibrations.* Journal of Vibration and Control.
-- Shannon, C.E. (1948). *A mathematical theory of communication.* Bell System Technical Journal, 27, 379–423.
+- C. E. Shannon (1948). *A mathematical theory of communication.* Bell System Technical Journal, 27, 379-423.
 - GSA (2003). *Progressive Collapse Analysis and Design Guidelines for New Federal Office Buildings.*
+- DoD (2016). *UFC 4-023-03: Design of Buildings to Resist Progressive Collapse.*
+- D. Feng et al. (2024). *Physically-based collapse failure criteria in progressive collapse analyses of multi-story RC structures under column removal.* Engineering Structures. https://doi.org/10.1016/j.engstruct.2024.119412
+- R. D. Ziemian, W. McGuire (2021). *Steel benchmark frames for structural analysis and validation studies.* Data in Brief, 39, 107510. https://doi.org/10.1016/j.dib.2021.107510
+
+See [`THEORY.md`](THEORY.md) for the complete derivation and limitations.
+
+---
+
+## License
+
+GNU General Public License v3.0 or later (GPL-3.0-or-later). See [`LICENSE`](LICENSE).
+
+## Citation
+
+If you use this software, please cite the accompanying manuscript (in
+[`manuscript/`](manuscript/)): Carvajal Brown, F. (2026). *An Entropy Robustness
+Index for Planar Steel Frames.* Revista de la Construcción (under review).

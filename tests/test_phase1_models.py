@@ -12,7 +12,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from core.models import Node, Member, Load, FrameData, EnergyState, MemberState, EntropyRecord, SimulationResult
-from structure.frames import frame_2d_simple, frame_3d_redundant
+from structure.frames import frame_2d_simple, frame_building_2d
 
 
 def test_node_instantiation():
@@ -53,14 +53,14 @@ def test_frame_2d_simple_build():
     print("  PASS: frame_2d_simple builds correctly")
 
 
-def test_frame_3d_redundant_build():
-    """frame_3d_redundant.build() returns a valid FrameData."""
-    frame = frame_3d_redundant.build()
+def test_frame_building_2d_build():
+    """frame_building_2d.build() returns a valid FrameData."""
+    frame = frame_building_2d.build()
     assert isinstance(frame, FrameData)
-    assert len(frame.nodes) == 5
-    assert len(frame.members) == 8
-    assert len(frame.loads) == 1
-    print("  PASS: frame_3d_redundant builds correctly")
+    assert len(frame.nodes) == 12
+    assert len(frame.members) == 15
+    assert len(frame.loads) == 9
+    print("  PASS: frame_building_2d builds correctly")
 
 
 def test_energy_state():
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     test_member_instantiation()
     test_load_instantiation()
     test_frame_2d_simple_build()
-    test_frame_3d_redundant_build()
+    test_frame_building_2d_build()
     test_energy_state()
     test_entropy_record()
     print("All Phase 1 tests passed.\n")

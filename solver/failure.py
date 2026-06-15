@@ -10,7 +10,7 @@ Failure criterion: maximum combined stress exceeds yield stress.
 where:
     N     = axial force (f_local[0])
     M_max = max bending moment at either end (max of f_local[5], f_local[11])
-    c     = I/S ≈ sqrt(I/A) — distance from neutral axis to extreme fiber
+    c     = extreme-fibre distance, an explicit section property (Material.c)
     A, I  = from member material
 
 This correctly handles:
@@ -81,8 +81,9 @@ def _combined_stress(member, u: np.ndarray, frame: FrameData) -> float:
         sigma_bending = abs(M_max) * c / I
         sigma_max    = sigma_axial + sigma_bending
 
-    where c = sqrt(I/A) approximates the distance from neutral axis
-    to extreme fiber for a compact section.
+    where c is the explicit extreme-fibre distance carried by the member's
+    Material (Material.c). When a legacy material omits c the model falls
+    back to the radius of gyration sqrt(I/A) — see Material.fiber_distance.
 
     Args:
         member: Member with material properties.
@@ -102,10 +103,15 @@ def _combined_stress(member, u: np.ndarray, frame: FrameData) -> float:
     f_local = k_local @ u_local
 
     A, I = member.A, member.I
-    c = np.sqrt(I / A)  # Approximate extreme fiber distance
 
     # Axial stress from local DOF 0
     sigma_axial = abs(f_local[0]) / A
+
+    # A truss bar carries no bending; its stress is purely axial.
+    if getattr(member, "is_truss", False):
+        return sigma_axial
+
+    c = member.c  # Explicit extreme-fibre distance (true section property)
 
     # Bending moment at start (DOF 5) and end (DOF 11)
     M_max = max(abs(f_local[5]), abs(f_local[11]))

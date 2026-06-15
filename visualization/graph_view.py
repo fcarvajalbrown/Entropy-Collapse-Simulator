@@ -15,6 +15,7 @@ Consumed by main.py or called directly for step-by-step animation.
 """
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
@@ -62,7 +63,7 @@ def plot_frame(
 
     if save_path:
         plt.savefig(save_path, dpi=150)
-    elif show:
+    elif show and matplotlib.get_backend().lower() != "agg":
         plt.show()
 
     return fig
@@ -115,7 +116,7 @@ def plot_collapse_sequence(
 
     if save_path:
         plt.savefig(save_path, dpi=150)
-    elif show:
+    elif show and matplotlib.get_backend().lower() != "agg":
         plt.show()
 
     return fig

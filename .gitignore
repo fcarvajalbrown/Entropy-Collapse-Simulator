@@ -1,3 +1,18 @@
+# Build / packaging artifacts
 /build
 /dist
 /main.spec
+*.egg-info/
+*.egg
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Scratch outputs from main.py --save / benchmark.py --figures
+# (the manuscript's own figures live in manuscript/figures/)
+/output_figures/

@@ -8,8 +8,14 @@ Each step:
   2. Compute entropy metrics → EntropyRecord
   3. Check for collapse detection → halt if detected
   4. Check for member failures → mark failed members
-  5. Redistribute energy among surviving members
-  6. Repeat until collapse, full failure, or max steps reached
+  5. Repeat until collapse, full failure, or max steps reached
+
+Energy redistribution after a member fails is NOT modelled with a separate
+phenomenological law. When a member is marked failed, it is excluded from the
+global stiffness assembly, so the next equilibrium solve automatically routes
+its load through the surviving members. This re-analysis IS the physically
+exact alternate-load-path redistribution prescribed by progressive-collapse
+guidance (e.g. UFC 4-023-03), and it requires no tuning coefficients.
 
 Inputs:  FrameData (from any frame in structure/frames/)
 Outputs: SimulationResult (consumed by visualization/)
@@ -18,15 +24,14 @@ Outputs: SimulationResult (consumed by visualization/)
 from core.models import FrameData, SimulationResult, EnergyState, EntropyRecord
 from solver.equilibrium import solve
 from solver.failure import check_and_apply_failures, all_failed
-from solver.redistribution import redistribute
 from entropy.metrics import compute as compute_entropy
 from entropy.localization import detect_collapse_zscore, detect_collapse_threshold
+from entropy.robustness import is_stable
 
 
 def run(
     frame: FrameData,
     max_steps: int = 100,
-    redistribution_dt: float = 1.0,
     collapse_method: str = "zscore",
     collapse_threshold: float = -0.5,
     collapse_zscore: float = 3.0,
@@ -39,7 +44,6 @@ def run(
     Args:
         frame: Fully defined structural frame (nodes, members, loads).
         max_steps: Maximum number of load/failure steps before stopping.
-        redistribution_dt: Time step for the energy redistribution ODE.
         collapse_method: Detection strategy — "zscore" or "threshold".
         collapse_threshold: dS threshold for threshold-based detection.
         collapse_zscore: Z-score cutoff for zscore-based detection.
@@ -62,6 +66,20 @@ def run(
     for step in range(max_steps):
 
         load_factor = load_factor_start + step * load_factor_step
+
+        # --- Step 0: Stability gate ---
+        # If accumulated failures have turned the frame into a mechanism, the
+        # equilibrium solve would return meaningless displacements. Treat this
+        # as collapse and stop rather than feed garbage downstream.
+        if not is_stable(frame):
+            return SimulationResult(
+                frame_name=frame.name,
+                energy_history=energy_history,
+                entropy_history=entropy_history,
+                collapse_detected=True,
+                collapse_step=step,
+                failed_sequence=failed_sequence,
+            )
 
         # --- Step 1: Solve equilibrium ---
         energy_state = solve(frame, step, load_factor=load_factor)
@@ -100,10 +118,10 @@ def run(
                 failed_sequence=failed_sequence
             )
 
-        # --- Step 5: Redistribute energy if failures occurred ---
-        if newly_failed:
-            energy_state = redistribute(frame, energy_state, redistribution_dt)
-            energy_history[-1] = energy_state  # Replace with post-redistribution state
+        # No explicit redistribution step: any member marked failed above is
+        # dropped from the stiffness assembly, so the next iteration's solve()
+        # re-routes its load through the surviving members automatically. This
+        # re-analysis is the exact alternate-load-path redistribution.
 
     # Max steps reached without collapse
     return SimulationResult(

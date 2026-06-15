@@ -15,7 +15,7 @@ To add a new scenario:
 
 from core.models import SimulationResult
 from simulation import runner
-from structure.frames import frame_2d_simple, frame_3d_redundant, frame_pratt_bridge
+from structure.frames import frame_2d_simple, frame_building_2d, frame_pratt_bridge
 
 
 # ---------------------------------------------------------------------------
@@ -49,13 +49,13 @@ def scenario_2d_simple(
     )
 
 
-def scenario_3d_redundant(
+def scenario_building_2d(
     max_steps: int = 150,
     collapse_method: str = "zscore"
 ) -> SimulationResult:
     """
-    3D redundant space frame — tests energy redistribution across
-    multiple load paths after member failures.
+    Planar 2-bay, 3-story steel moment frame — a redundant building frame
+    that redistributes load through frame action after member failures.
 
     Uses incremental loading (load_factor_step=0.3) to drive progressive
     failures across the redundant load paths.
@@ -67,7 +67,7 @@ def scenario_3d_redundant(
     Returns:
         SimulationResult from the runner.
     """
-    frame = frame_3d_redundant.build()
+    frame = frame_building_2d.build()
     return runner.run(
         frame,
         max_steps=max_steps,
@@ -111,7 +111,7 @@ def scenario_pratt_bridge(
 
 SCENARIOS: dict[str, callable] = {
     "2d_simple":     scenario_2d_simple,
-    "3d_redundant":  scenario_3d_redundant,
+    "building_2d":   scenario_building_2d,
     "pratt_bridge":  scenario_pratt_bridge,
 }
 

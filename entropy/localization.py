@@ -49,37 +49,47 @@ def detect_collapse_zscore(
     min_history: int = 5
 ) -> tuple[bool, int | None]:
     """
-    Detect collapse when dS/dt deviates beyond z_threshold standard deviations
-    below the rolling mean of all previous dS values.
+    Detect collapse when dS/dt drops more than z_threshold standard deviations
+    below the mean of the *preceding* dS values.
 
-    More adaptive than fixed threshold — works across different frame sizes
-    and load magnitudes without manual calibration.
+    The baseline statistics (mean, std) for each candidate step are computed
+    from the points that came strictly before it. This makes the test causal —
+    a step is judged only against history available up to that point — and
+    avoids the common pitfall of inflating the baseline variance with the very
+    spike one is trying to detect. The method is adaptive: it needs no
+    per-frame threshold calibration.
 
     Args:
         history: Full entropy record history up to the current step.
-        z_threshold: Number of standard deviations below mean to flag collapse.
-                     Default 3.0 (flags extreme negative outliers).
-        min_history: Minimum number of steps required before detection activates.
-                     Prevents false positives in early steps.
+        z_threshold: Number of standard deviations below the prior mean that
+                     flags collapse. Default 3.0 (extreme negative outlier).
+        min_history: Minimum number of preceding points required before the
+                     test activates. Prevents false positives in early steps.
 
     Returns:
         (collapsed, step): collapsed is True if detected, step is the
         index where it occurred, or (False, None) if not yet detected.
     """
-    if len(history) < min_history:
-        return False, None
+    deltas = np.array([r.delta_entropy for r in history], dtype=float)
+    if deltas.size:
+        deltas[0] = 0.0   # first step has no predecessor; its dS is an artifact
 
-    deltas = np.array([r.delta_entropy for r in history])
-    mean = deltas.mean()
-    std = deltas.std()
+    # Numerical floor separating a genuine entropy drop (~0.1-1 nats at a
+    # failure) from floating-point noise (~1e-16) on a flat history.
+    DROP_FLOOR = 1e-3
 
-    if std == 0.0:
-        return False, None
-
-    for record in history:
-        z = (record.delta_entropy - mean) / std
+    for i in range(min_history, len(history)):
+        baseline = deltas[:i]            # strictly preceding points
+        mean = baseline.mean()
+        std = baseline.std()
+        if std <= DROP_FLOOR:
+            # Flat baseline: a clearly negative drop is maximally significant.
+            if deltas[i] < -DROP_FLOOR:
+                return True, history[i].step
+            continue
+        z = (deltas[i] - mean) / std
         if z < -z_threshold:
-            return True, record.step
+            return True, history[i].step
 
     return False, None
 

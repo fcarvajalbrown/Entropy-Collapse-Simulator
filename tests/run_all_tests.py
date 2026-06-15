@@ -12,13 +12,16 @@ import sys
 import os
 
 TESTS = [
-    ("Phase 1 — Models",          "tests/test_phase1_models.py"),
-    ("Phase 2 — Stiffness",        "tests/test_phase2_stiffness.py"),
-    ("Phase 3 — Solver",           "tests/test_phase3_solver.py"),
-    ("Phase 4 — Failure",          "tests/test_phase4_failure.py"),
-    ("Phase 5 — Entropy",          "tests/test_phase5_entropy.py"),
-    ("Phase 6 — Simulation",       "tests/test_phase6_simulation.py"),
-    ("Phase 7 — Visualization",    "tests/test_phase7_visualization.py"),
+    ("Phase 1 - Models",          "tests/test_phase1_models.py"),
+    ("Phase 2 - Stiffness",        "tests/test_phase2_stiffness.py"),
+    ("Phase 3 - Solver",           "tests/test_phase3_solver.py"),
+    ("Phase 4 - Failure",          "tests/test_phase4_failure.py"),
+    ("Phase 5 - Entropy",          "tests/test_phase5_entropy.py"),
+    ("Phase 6 - Simulation",       "tests/test_phase6_simulation.py"),
+    ("Phase 7 - Visualization",    "tests/test_phase7_visualization.py"),
+    ("Phase 8 - Robustness Index", "tests/test_phase8_robustness.py"),
+    ("Phase 9 - Criteria",         "tests/test_phase9_criteria.py"),
+    ("Phase 10 - Novelty studies", "tests/test_phase10_novelty.py"),
 ]
 
 
@@ -26,13 +29,20 @@ def run_all():
     """Run each test file as a subprocess and report pass/fail per phase."""
     passed, failed = [], []
 
+    # Force UTF-8 in child interpreters so output is portable on Windows.
+    child_env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+
     for label, path in TESTS:
         print(f"\n{'='*50}")
         print(f"Running: {label}")
         print('='*50)
+        if not os.path.exists(path):
+            print(f"  SKIP  (not present yet: {path})")
+            continue
         result = subprocess.run(
             [sys.executable, path],
-            capture_output=False
+            capture_output=False,
+            env=child_env,
         )
         if result.returncode == 0:
             passed.append(label)

@@ -2,8 +2,14 @@
 structure/stiffness.py
 ======================
 Assembles the global stiffness matrix K from a FrameData object.
-Supports 2D and 3D Euler-Bernoulli beam elements.
-Output is consumed by solver/equilibrium.py.
+
+The element is a PLANAR Euler-Bernoulli frame element embedded in a 6-DOF-per
+-node bookkeeping scheme. Each member carries axial stiffness and in-plane
+bending (bending about the global Z axis, i.e. deformation in the global XY
+plane). All structures must therefore lie in the XY plane (z = 0) with their
+out-of-plane DOFs (2=uz, 3=rx, 4=ry) constrained at every node. Weak-axis
+bending and torsion are intentionally NOT modelled — see THEORY.md, "Scope and
+limitations". Output is consumed by solver/equilibrium.py.
 """
 
 import numpy as np
@@ -85,6 +91,10 @@ def _local_stiffness(member: Member, frame: FrameData) -> np.ndarray:
     k_local[0, 0] = k_local[6, 6] =  E * A / L
     k_local[0, 6] = k_local[6, 0] = -E * A / L
 
+    # A truss (pin-jointed) bar carries axial force only: no bending terms.
+    if getattr(member, "is_truss", False):
+        return k_local
+
     # Bending in local XY plane — strong axis (DOFs 1, 5, 7, 11)
     k_local[1, 1]  = k_local[7, 7]  =  12 * E * I / L**3
     k_local[1, 7]  = k_local[7, 1]  = -12 * E * I / L**3
@@ -100,27 +110,26 @@ def _local_stiffness(member: Member, frame: FrameData) -> np.ndarray:
 
 def _transformation_matrix(member: Member, frame: FrameData) -> np.ndarray:
     """
-    Build the 12x12 transformation matrix T from local to global coordinates.
+    Build the 12x12 transformation matrix T from local to global coordinates
+    for a planar frame element.
 
-    Uses a robust reference vector strategy to define the local coordinate
-    system for any member orientation in 3D space:
+    The element bends in the global XY plane (about the global Z axis), so the
+    local axes are fixed consistently for every member:
 
-    - local x: unit vector along member axis
-    - local y: defined to lie in the plane of bending (XY global plane
-               for 2D frames, or the most natural in-plane direction for 3D)
-    - local z: cross(local_x, local_y), completes right-hand system
+    - local x: unit vector along the member axis (lies in the XY plane)
+    - local z: the global Z axis [0, 0, 1] (the bending axis is the same for
+               all members, which is what makes the in-plane DOFs ux, uy, rz
+               couple correctly for columns, beams and diagonals alike)
+    - local y: cross(local_z, local_x), which also lies in the XY plane
 
-    Reference vector selection:
-        Members along global X  → ref = [0, 1, 0]  (global Y)
-        Members along global Y  → ref = [0, 0, 1]  (global Z)
-        Members along global Z  → ref = [0, 1, 0]  (global Y)
-        All others              → ref = [0, 1, 0]  unless collinear
-
-    This ensures local y always has a meaningful in-plane direction and
-    never collapses to zero from a bad cross product.
+    This is the standard 2D frame element written in 3D bookkeeping. It is the
+    single most important correctness point of the assembler: choosing local z
+    per member from a reference-vector heuristic (the previous approach) put a
+    column's only bending plane out-of-plane, leaving in-plane sway with no
+    stiffness and a singular system masked by a least-squares fallback.
 
     Args:
-        member: Member connecting two nodes.
+        member: Member connecting two nodes (must lie in the XY plane).
         frame: Used to retrieve node coordinates.
 
     Returns:
@@ -134,21 +143,15 @@ def _transformation_matrix(member: Member, frame: FrameData) -> np.ndarray:
     dz = n_end.z - n_start.z
     L  = np.sqrt(dx**2 + dy**2 + dz**2)
 
+    if abs(dz) > 1e-9:
+        raise ValueError(
+            f"Member {member.id} has out-of-plane extent (dz={dz:.3e}). "
+            "This is a planar (XY) frame solver; all members must lie in the "
+            "z=0 plane. See THEORY.md, 'Scope and limitations'."
+        )
+
     local_x = np.array([dx, dy, dz]) / L
-
-    # Choose reference vector that is not collinear with local_x
-    # to ensure a well-defined cross product.
-    candidates = [
-        np.array([0.0, 1.0, 0.0]),  # Global Y — preferred for most members
-        np.array([0.0, 0.0, 1.0]),  # Global Z — fallback
-        np.array([1.0, 0.0, 0.0]),  # Global X — last resort
-    ]
-    for ref in candidates:
-        cross = np.cross(local_x, ref)
-        if np.linalg.norm(cross) > 1e-6:
-            local_z = cross / np.linalg.norm(cross)
-            break
-
+    local_z = np.array([0.0, 0.0, 1.0])           # bending about global Z
     local_y = np.cross(local_z, local_x)
     local_y /= np.linalg.norm(local_y)
 

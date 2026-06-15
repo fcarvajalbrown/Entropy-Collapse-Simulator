@@ -14,6 +14,8 @@ not the full force magnitude. This keeps the failure criterion
 (axial_force >= sigma_y * A) physically meaningful.
 """
 
+import warnings
+
 import numpy as np
 from core.models import FrameData, EnergyState, MemberState
 from structure.stiffness import (
@@ -40,6 +42,26 @@ def solve(frame: FrameData, step: int, load_factor: float = 1.0) -> EnergyState:
     Returns:
         EnergyState with per-member strain energies and forces.
     """
+    _u, energy_state = solve_full(frame, step, load_factor=load_factor)
+    return energy_state
+
+
+def solve_full(frame: FrameData, step: int, load_factor: float = 1.0):
+    """
+    Solve Ku = F and return BOTH the displacement vector and the EnergyState.
+
+    The displacement vector is needed by analyses that reason about nodal
+    deflections (e.g. the displacement-based collapse criterion) without
+    re-solving the system. solve() is a thin wrapper that discards u.
+
+    Args:
+        frame: Current frame definition (members may be partially failed).
+        step: Current simulation step index.
+        load_factor: Scalar multiplier applied to all loads before solving.
+
+    Returns:
+        (u, EnergyState): global displacement vector and the energy snapshot.
+    """
     K = assemble_global_stiffness(frame)
     K = apply_boundary_conditions(K, frame)
     F = _build_load_vector(frame, load_factor=load_factor)
@@ -53,7 +75,7 @@ def solve(frame: FrameData, step: int, load_factor: float = 1.0) -> EnergyState:
 
     total_energy = sum(ms.strain_energy for ms in member_states)
 
-    return EnergyState(step=step, total_energy=total_energy, member_states=member_states)
+    return u, EnergyState(step=step, total_energy=total_energy, member_states=member_states)
 
 
 def _build_load_vector(frame: FrameData, load_factor: float = 1.0) -> np.ndarray:
@@ -91,6 +113,16 @@ def _solve_system(K: np.ndarray, F: np.ndarray) -> np.ndarray:
     try:
         u = np.linalg.solve(K, F)
     except np.linalg.LinAlgError:
+        # Exactly singular: the (possibly damaged) structure is a mechanism.
+        # Fall back to least squares so the call returns, but warn loudly -
+        # callers that care about validity should gate on entropy.robustness
+        # .is_stable() first (the runner and criteria loops do).
+        warnings.warn(
+            "Stiffness matrix is singular; returning a least-squares solution. "
+            "The structure is likely a mechanism - check is_stable() upstream.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         u = np.linalg.lstsq(K, F, rcond=None)[0]
     return u
 

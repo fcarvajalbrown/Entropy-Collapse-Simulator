@@ -1,12 +1,13 @@
 """
 tests/test_phase4_failure.py
 =============================
-Phase 4: Verify member failure detection and energy redistribution.
+Phase 4: Verify member failure detection and alternate-load-path re-analysis.
 
 Checks:
   - A member with very low sigma_y fails immediately under any load
   - check_and_apply_failures returns the correct member ID
-  - Energy redistribution conserves total energy approximately
+  - Removing a failed member reroutes load via re-analysis (no separate
+    phenomenological redistribution law)
   - all_failed() correctly detects total collapse
 """
 
@@ -15,10 +16,10 @@ import dataclasses
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from structure.frames import frame_building_2d
 from structure.frames import frame_2d_simple
 from solver.equilibrium import solve
 from solver.failure import check_and_apply_failures, all_failed
-from solver.redistribution import redistribute
 
 
 def test_member_fails_under_low_capacity():
@@ -44,25 +45,36 @@ def test_failure_marks_member_in_frame():
     print("  PASS: member.failed flag set correctly")
 
 
-def test_redistribution_conserves_energy():
+def test_member_removal_reroutes_load():
     """
-    After redistribution, total energy changes by less than 5%.
-    (Not strictly conserved due to ODE discretization, but should be close.)
+    Alternate-load-path re-analysis: failing one member of a redundant frame
+    and re-solving must (a) keep the system solvable, (b) leave the failed
+    member with zero strain energy, and (c) change the surviving members'
+    energy distribution (load has been rerouted). No separate redistribution
+    law is used — exclusion from the stiffness assembly does the work.
     """
-    frame = frame_2d_simple.build()
-    frame.members[0].material = dataclasses.replace(frame.members[0].material, sigma_y=1.0)
-    es = solve(frame, step=0)
-    check_and_apply_failures(frame, es)
+    frame = frame_building_2d.build()
 
-    energy_before = es.total_energy
-    es_after = redistribute(frame, es, dt=1.0)
-    energy_after = es_after.total_energy
+    es_before = solve(frame, step=0)
+    energy_before = {ms.member_id: ms.strain_energy for ms in es_before.member_states}
 
-    if energy_before > 0:
-        relative_change = abs(energy_after - energy_before) / energy_before
-        assert relative_change < 0.05, \
-            f"Energy changed by {relative_change*100:.1f}% after redistribution"
-    print(f"  PASS: Energy before={energy_before:.4f}, after={energy_after:.4f} J")
+    # Force the most-loaded member to fail, then re-analyse.
+    target = max(es_before.member_states, key=lambda ms: ms.strain_energy)
+    frame.members[target.member_id].failed = True
+
+    es_after = solve(frame, step=1)
+    energy_after = {ms.member_id: ms.strain_energy for ms in es_after.member_states}
+
+    assert energy_after[target.member_id] == 0.0, \
+        "Failed member must carry zero strain energy after removal"
+
+    survivors_changed = any(
+        abs(energy_after[mid] - energy_before[mid]) > 1e-9
+        for mid in energy_after if mid != target.member_id
+    )
+    assert survivors_changed, "Surviving members must absorb the rerouted load"
+    print(f"  PASS: load rerouted after removing member {target.member_id} "
+          f"(survivor energy redistributed by re-analysis)")
 
 
 def test_all_failed_false_initially():
@@ -82,10 +94,10 @@ def test_all_failed_true_when_all_marked():
 
 
 if __name__ == "__main__":
-    print("=== Phase 4: Failure & Redistribution ===")
+    print("=== Phase 4: Failure & Alternate-Load-Path Re-analysis ===")
     test_member_fails_under_low_capacity()
     test_failure_marks_member_in_frame()
-    test_redistribution_conserves_energy()
+    test_member_removal_reroutes_load()
     test_all_failed_false_initially()
     test_all_failed_true_when_all_marked()
     print("All Phase 4 tests passed.\n")

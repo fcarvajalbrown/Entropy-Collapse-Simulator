@@ -1,0 +1,13 @@
+# requirements.txt
+# Planar entropy-based structural analysis tool
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# To build a standalone .exe (optional):
+#   pip install pyinstaller
+#   pyinstaller --onefile main.py
+
+numpy>=1.26
+matplotlib>=3.8
+Pillow>=10.0          # used by matplotlib to write GIF animations

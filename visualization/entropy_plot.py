@@ -14,6 +14,7 @@ process leading to collapse — suitable for publication figures.
 Consumed by main.py after runner.run() completes.
 """
 
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
@@ -81,7 +82,7 @@ def plot_entropy(
 
     if save_path:
         plt.savefig(save_path, dpi=150)
-    elif show:
+    elif show and matplotlib.get_backend().lower() != "agg":
         plt.show()
 
     return fig

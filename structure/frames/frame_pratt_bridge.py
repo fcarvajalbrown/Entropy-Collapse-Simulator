@@ -1,12 +1,20 @@
 """
 structure/frames/frame_pratt_bridge.py
 =======================================
-Defines a Pratt truss bridge frame for progressive collapse simulation.
+Defines a redundant pin-jointed truss bridge for the robustness case study.
 
-Geometry — 6-panel Pratt truss (2D, z=0):
+All members are TRUSS (axial-only) bars and every joint is a pin: rz is
+restrained at every node along with the out-of-plane DOFs. The geometry is a
+6-panel Pratt truss to which a counter-diagonal is added in every panel
+(X-bracing), so the truss is statically indeterminate (redundant). A plain
+single-diagonal Pratt truss of this size is statically determinate and would
+collapse on the loss of any member; the counter-diagonals give it genuine
+alternate load paths, which is what makes R_S meaningful for a truss.
+
+Geometry — 6-panel X-braced truss (2D, z=0):
 
     Top chord:    T0---T1---T2---T3---T4---T5---T6
-                  |  / |  / |  / |  / |  / |  / |
+                  | X  | X  | X  | X  | X  | X  |
     Bot chord:    B0---B1---B2---B3---B4---B5---B6
 
     Panel width  : 5.0 m
@@ -14,33 +22,27 @@ Geometry — 6-panel Pratt truss (2D, z=0):
     Total span   : 30.0 m
 
 Node numbering:
-    Bottom chord: nodes 0–6  (y = 0.0)
-    Top chord:    nodes 7–13 (y = 4.0)
+    Bottom chord: nodes 0-6  (y = 0.0)
+    Top chord:    nodes 7-13 (y = 4.0)
 
-    B0=0, B1=1, B2=2, B3=3, B4=4, B5=5, B6=6
-    T0=7, T1=8, T2=9, T3=10, T4=11, T5=12, T6=13
-
-Member layout (Pratt pattern — diagonals carry tension under gravity):
-    Bottom chords : B0-B1, B1-B2, B2-B3, B3-B4, B4-B5, B5-B6  (members 0–5)
-    Top chords    : T0-T1, T1-T2, T2-T3, T3-T4, T4-T5, T5-T6  (members 6–11)
-    Verticals     : B0-T0, B1-T1, B2-T2, B3-T3, B4-T4, B5-T5, B6-T6 (members 12–18)
-    Diagonals     : B1-T0, B2-T1, B3-T2, B4-T3, B5-T4, B6-T5  (members 19–24)
-                    (Pratt: diagonals slope toward center from bottom)
+Member layout:
+    Bottom chords : B0-B1 ... B5-B6        (6)
+    Top chords    : T0-T1 ... T5-T6        (6)
+    Verticals     : B0-T0 ... B6-T6        (7)
+    Diagonals     : B(i+1)-T(i)            (6, Pratt direction)
+    Counter-diag. : B(i)-T(i+1)            (6, X-bracing -> redundancy)
+    Total                                  (31)
 
 Supports:
     B0 (node 0): pinned  — fixed_dofs [0, 1]
     B6 (node 6): roller  — fixed_dofs [1] (free to slide horizontally)
 
-Load:
-    Distributed traffic load as point loads at each bottom chord node B1–B5.
-    Magnitude: -100 kN per node (downward, DOF 1 = uy).
-    End nodes B0, B6 carry half load: -50 kN each.
+Static check (truss): nodes n=14 -> 2n=28; members m=31, reactions r=3,
+m + r = 34 > 28, so the truss is indeterminate to degree 6 (redundant).
 
-Materials:
-    Bottom chord  : high-strength S355 (tension members, larger section)
-    Top chord     : S355 standard (compression members)
-    Verticals     : S275 standard
-    Diagonals     : S355 standard (primary load-carrying members)
+Load:
+    Distributed traffic load as point loads at the bottom chord nodes.
+    Interior nodes -100 kN; end nodes -50 kN (DOF 1 = uy, downward).
 """
 
 import dataclasses
@@ -64,39 +66,54 @@ N_NODES_CHORD = N_PANELS + 1  # 7 nodes per chord
 # Keeping EA/EI ratios well-conditioned to avoid numerical overflow.
 # Reference: typical W-section steel members for medium-span bridges.
 
-# Bottom chord — tension dominant (W360x122 equivalent)
+# Section properties follow standard wide-flange members; c is half the
+# nominal section depth (extreme-fibre distance) for the bending-stress term.
+
+# Bottom chord — tension dominant (W360x122 equivalent, d ≈ 363 mm)
 BOTTOM_CHORD_MAT = dataclasses.replace(
-    STEEL_S355, name="S355 Bottom Chord", A=0.0155, I=3.65e-4
+    STEEL_S355, name="S355 Bottom Chord", A=0.0155, I=3.65e-4, c=0.1815
 )
 
-# Top chord — compression dominant (W310x97 equivalent)
+# Top chord — compression dominant (W310x97 equivalent, d ≈ 308 mm)
 TOP_CHORD_MAT = dataclasses.replace(
-    STEEL_S355, name="S355 Top Chord", A=0.0123, I=2.22e-4
+    STEEL_S355, name="S355 Top Chord", A=0.0123, I=2.22e-4, c=0.154
 )
 
-# Verticals — lighter section (W200x52 equivalent)
+# Verticals — lighter section (W200x52 equivalent, d ≈ 206 mm)
 VERTICAL_MAT = dataclasses.replace(
-    STEEL_S275, name="S275 Vertical", A=0.0066, I=5.27e-5
+    STEEL_S275, name="S275 Vertical", A=0.0066, I=5.27e-5, c=0.103
 )
 
-# Diagonals — primary load path (W250x89 equivalent)
+# Diagonals — primary load path (W250x89 equivalent, d ≈ 260 mm)
 DIAGONAL_MAT = dataclasses.replace(
-    STEEL_S355, name="S355 Diagonal", A=0.0114, I=1.42e-4
+    STEEL_S355, name="S355 Diagonal", A=0.0114, I=1.42e-4, c=0.130
 )
 
 
-def build() -> FrameData:
+def build(n_counter: int = N_PANELS) -> FrameData:
     """
-    Construct and return the Pratt bridge FrameData.
+    Construct and return the truss bridge FrameData.
+
+    Args:
+        n_counter: Number of counter-diagonals (0..6) to include, applied to
+                   the leftmost panels. 0 gives the statically determinate
+                   single-diagonal Pratt truss (degree of static indeterminacy
+                   = 0); each counter-diagonal adds one redundancy, so the
+                   degree of static indeterminacy equals n_counter. The default
+                   (6) is the fully X-braced redundant truss. This parameter is
+                   used by the redundancy parametric study.
 
     Returns:
-        FrameData with 14 nodes, 25 members, pinned/roller supports,
-        and distributed point loads along the bottom chord.
+        FrameData with 14 nodes, (25 + n_counter) members, pinned/roller
+        supports, and distributed point loads along the bottom chord.
     """
+    name = ("Redundant truss bridge (6-panel, 30 m, X-braced)"
+            if n_counter == N_PANELS
+            else f"Truss bridge (6-panel, {n_counter} counter-diagonals)")
     return FrameData(
-        name="Pratt Truss Bridge (6-panel, 30m span)",
+        name=name,
         nodes=_define_nodes(),
-        members=_define_members(),
+        members=_define_members(n_counter),
         loads=_define_loads()
     )
 
@@ -113,50 +130,56 @@ def _define_nodes() -> list[Node]:
     """
     nodes = []
 
-    # Out-of-plane and rotational DOFs are fixed for all nodes (planar analysis).
-    # DOFs 2=uz, 3=rx, 4=ry are constrained everywhere.
-    # In-plane DOF 5=rz is left free to allow bending in the XY plane.
-    PLANAR_DOFS = [2, 3, 4]
+    # Pin-jointed truss: out-of-plane DOFs (2=uz, 3=rx, 4=ry) AND the in-plane
+    # rotation (5=rz) are restrained at every node, since bars carry no moment
+    # and provide no rotational stiffness. Each node then has 2 active DOFs
+    # (ux, uy), the classical truss bookkeeping.
+    PIN_DOFS = [2, 3, 4, 5]
 
-    # Bottom chord: nodes 0–6
+    # Bottom chord: nodes 0-6
     for i in range(N_NODES_CHORD):
         x = i * PANEL_WIDTH
         if i == 0:
-            fixed_dofs = [0, 1] + PLANAR_DOFS   # Pinned left support
+            fixed_dofs = [0, 1] + PIN_DOFS   # Pinned left support
         elif i == N_PANELS:
-            fixed_dofs = [1] + PLANAR_DOFS       # Roller right support
+            fixed_dofs = [1] + PIN_DOFS       # Roller right support
         else:
-            fixed_dofs = PLANAR_DOFS             # Free in-plane only
+            fixed_dofs = PIN_DOFS             # Free in-plane translations only
         nodes.append(Node(id=i, x=x, y=0.0, z=0.0, fixed_dofs=fixed_dofs))
 
-    # Top chord: nodes 7–13
+    # Top chord: nodes 7-13
     for i in range(N_NODES_CHORD):
         x = i * PANEL_WIDTH
-        node_id = N_NODES_CHORD + i  # 7–13
-        nodes.append(Node(id=node_id, x=x, y=TRUSS_HEIGHT, z=0.0, fixed_dofs=PLANAR_DOFS))
+        node_id = N_NODES_CHORD + i  # 7-13
+        nodes.append(Node(id=node_id, x=x, y=TRUSS_HEIGHT, z=0.0, fixed_dofs=PIN_DOFS))
 
     return nodes
 
 
-def _define_members() -> list[Member]:
+def _define_members(n_counter: int = N_PANELS) -> list[Member]:
     """
-    Define all 25 members: bottom chords, top chords, verticals, diagonals.
+    Define the truss members: chords, verticals, diagonals, counter-diagonals.
+
+    All members are TRUSS (axial-only) bars. n_counter (0..6) sets how many
+    counter-diagonals are added.
 
     Member ID layout:
-        0–5:   Bottom chords (B0-B1 through B5-B6)
-        6–11:  Top chords    (T0-T1 through T5-T6)
-        12–18: Verticals     (B0-T0 through B6-T6)
-        19–24: Diagonals     (B1-T0 through B6-T5, Pratt pattern)
+        0-5:   Bottom chords  (B0-B1 through B5-B6)
+        6-11:  Top chords     (T0-T1 through T5-T6)
+        12-18: Verticals      (B0-T0 through B6-T6)
+        19-24: Diagonals      (B(i+1)-T(i), Pratt direction)
+        25-30: Counter-diags  (B(i)-T(i+1), X-bracing for redundancy)
 
     Returns:
-        List of 25 Member objects.
+        List of 31 Member objects.
     """
     members = []
     mid = 0  # member id counter
 
     # Bottom chords
     for i in range(N_PANELS):
-        members.append(Member(id=mid, node_start=i, node_end=i+1, material=BOTTOM_CHORD_MAT))
+        members.append(Member(id=mid, node_start=i, node_end=i+1,
+                              material=BOTTOM_CHORD_MAT, kind="truss"))
         mid += 1
 
     # Top chords (node offset = N_NODES_CHORD = 7)
@@ -165,7 +188,8 @@ def _define_members() -> list[Member]:
             id=mid,
             node_start=N_NODES_CHORD + i,
             node_end=N_NODES_CHORD + i + 1,
-            material=TOP_CHORD_MAT
+            material=TOP_CHORD_MAT,
+            kind="truss",
         ))
         mid += 1
 
@@ -175,18 +199,32 @@ def _define_members() -> list[Member]:
             id=mid,
             node_start=i,
             node_end=N_NODES_CHORD + i,
-            material=VERTICAL_MAT
+            material=VERTICAL_MAT,
+            kind="truss",
         ))
         mid += 1
 
-    # Diagonals — Pratt pattern: slope from bottom-right to top-left
-    # Each diagonal connects bottom node (i+1) to top node (i)
+    # Diagonals — Pratt direction: bottom node (i+1) to top node (i)
     for i in range(N_PANELS):
         members.append(Member(
             id=mid,
-            node_start=i + 1,           # Bottom node (right side of panel)
-            node_end=N_NODES_CHORD + i, # Top node (left side of panel)
-            material=DIAGONAL_MAT
+            node_start=i + 1,
+            node_end=N_NODES_CHORD + i,
+            material=DIAGONAL_MAT,
+            kind="truss",
+        ))
+        mid += 1
+
+    # Counter-diagonals — opposite direction: bottom node (i) to top node (i+1).
+    # These X-brace a panel and add one redundancy each. Only the first
+    # n_counter panels receive a counter-diagonal.
+    for i in range(n_counter):
+        members.append(Member(
+            id=mid,
+            node_start=i,
+            node_end=N_NODES_CHORD + i + 1,
+            material=DIAGONAL_MAT,
+            kind="truss",
         ))
         mid += 1
 

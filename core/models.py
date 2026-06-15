@@ -10,6 +10,8 @@ This ensures full decoupling and makes the system easily expandable.
 Author: Felipe
 """
 
+import math
+import warnings
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
 
@@ -35,6 +37,15 @@ class Material:
         I (float): Second moment of area in m⁴ (strong axis bending).
         sigma_y (float): Yield stress in Pa. Used for failure criterion.
         rho (float): Density in kg/m³. Reserved for dynamic analysis.
+        c (Optional[float]): Distance from the neutral axis to the extreme
+                             fibre in m, used for the bending-stress term
+                             sigma_b = M·c/I. This is a true section property
+                             (≈ half the section depth) and must be provided
+                             explicitly for a physically correct failure check.
+                             If left as None the code falls back to the radius
+                             of gyration sqrt(I/A), which is a non-conservative
+                             placeholder retained only for backward
+                             compatibility — see `fiber_distance`.
     """
     name: str
     E: float
@@ -42,6 +53,35 @@ class Material:
     I: float
     sigma_y: float
     rho: float = 7850.0  # Default: structural steel density
+    c: Optional[float] = None  # Extreme-fibre distance (m); None → sqrt(I/A) fallback
+
+    @property
+    def fiber_distance(self) -> float:
+        """
+        Distance from the neutral axis to the extreme fibre (m).
+
+        Returns the explicitly defined ``c`` when available. Otherwise it
+        falls back to the radius of gyration sqrt(I/A). The radius of
+        gyration is NOT the extreme-fibre distance (for standard sections
+        c > r), so the fallback under-predicts bending stress and is only
+        kept so that legacy materials without ``c`` remain runnable. Define
+        ``c`` explicitly for any result intended for publication.
+        """
+        if self.c is not None:
+            return self.c
+        warnings.warn(
+            f"Material '{self.name}' has no explicit extreme-fibre distance c; "
+            "falling back to the radius of gyration sqrt(I/A), which "
+            "under-predicts bending stress. Set c for any published result.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return math.sqrt(self.I / self.A)
+
+    @property
+    def section_modulus(self) -> float:
+        """Elastic section modulus S = I / c (m³)."""
+        return self.I / self.fiber_distance
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +94,8 @@ STEEL_S275 = Material(
     A=0.01,
     I=1e-4,
     sigma_y=275e6,
-    rho=7850.0
+    rho=7850.0,
+    c=0.12,  # Representative extreme-fibre distance for the generic section
 )
 
 STEEL_S355 = Material(
@@ -63,7 +104,8 @@ STEEL_S355 = Material(
     A=0.01,
     I=1e-4,
     sigma_y=355e6,
-    rho=7850.0
+    rho=7850.0,
+    c=0.12,
 )
 
 
@@ -106,13 +148,25 @@ class Member:
         node_start (int): ID of the start node.
         node_end (int): ID of the end node.
         material (Material): Material and cross-section properties.
+        kind (str): Element kind. "frame" (default) is an Euler-Bernoulli
+                    element with axial and in-plane bending stiffness;
+                    "truss" is a pin-jointed bar with axial stiffness only
+                    (no bending, no end moments). In a pure truss every node
+                    must also restrain rz, since bars provide no rotational
+                    stiffness.
         failed (bool): Whether this member has failed. Set by failure module.
     """
     id: int
     node_start: int
     node_end: int
     material: Material
+    kind: str = "frame"
     failed: bool = False
+
+    @property
+    def is_truss(self) -> bool:
+        """True for an axial-only (pin-jointed) bar element."""
+        return self.kind == "truss"
 
     # Convenience properties so solver code stays readable
     @property
@@ -135,6 +189,16 @@ class Member:
         """Yield stress from material."""
         return self.material.sigma_y
 
+    @property
+    def c(self) -> float:
+        """Extreme-fibre distance from material (m)."""
+        return self.material.fiber_distance
+
+    @property
+    def S(self) -> float:
+        """Elastic section modulus from material (m³)."""
+        return self.material.section_modulus
+
 
 @dataclass
 class FrameData:
@@ -155,6 +219,24 @@ class FrameData:
     nodes: List[Node]
     members: List[Member]
     loads: List["Load"]
+
+    def __post_init__(self):
+        """
+        Enforce the global-DOF bookkeeping invariant.
+
+        The assembler maps a node to global DOFs as `node.id * 6 + dof` and
+        sizes the system as `len(nodes) * 6`. That is correct only when node
+        ids are the contiguous range 0..N-1. Validating it here turns a
+        silent aliasing/out-of-bounds bug into an explicit error for any
+        user-supplied frame that numbers nodes otherwise.
+        """
+        ids = [n.id for n in self.nodes]
+        expected = list(range(len(self.nodes)))
+        if sorted(ids) != expected:
+            raise ValueError(
+                f"Frame '{self.name}': node ids must be the contiguous range "
+                f"0..{len(self.nodes) - 1}; got {sorted(ids)}."
+            )
 
 
 @dataclass
@@ -187,8 +269,8 @@ class MemberState:
     Attributes:
         member_id (int): Corresponds to Member.id.
         strain_energy (float): Elastic strain energy stored in the member (Joules).
-        axial_force (float): Total internal force magnitude in Newtons.
-                             Includes axial, shear, and moment resultants.
+        axial_force (float): Internal axial force in Newtons (local DOF 0;
+                             positive = tension, negative = compression).
         deformation (float): Axial deformation in meters.
         failed (bool): Whether this member has failed at this time step.
     """

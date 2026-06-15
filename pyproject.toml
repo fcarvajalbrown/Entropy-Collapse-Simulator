@@ -1,35 +1,33 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "entropy-collapse-simulator"
-version = "0.0.1"
-description = "Entropy-based progressive collapse simulator for structural frames using Shannon entropy of strain energy distribution"
+name = "entropy-robustness-simulator"
+version = "0.1.0"
+description = "Planar structural robustness and progressive-collapse tool using the Shannon entropy of the strain-energy distribution (Entropy Robustness Index)"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-or-later" }
 authors = [
-    { name = "Felipe Carvajal", email = "fcarvajalbrown@protonmail.com" }
+    { name = "Felipe Carvajal Brown", email = "fcarvajalbrown@gmail.com" }
 ]
-keywords = ["structural engineering", "progressive collapse", "entropy", "FEM", "finite element"]
+keywords = ["structural engineering", "progressive collapse", "robustness", "entropy", "FEM", "alternate load path", "finite element method", "truss", "redundancy"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
     "numpy>=1.26",
-    "scipy>=1.12",
     "matplotlib>=3.8",
-    "networkx>=3.2",
     "Pillow>=10.0",
 ]
 
 [project.scripts]
-entropy-collapse = "main:main"
+entropy-robustness = "main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "entropy*", "simulation*", "solver*", "structure*", "visualization*"]
+include = ["analysis*", "core*", "entropy*", "simulation*", "solver*", "structure*", "visualization*"]

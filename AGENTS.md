@@ -1,14 +1,14 @@
-# Entropy-Based Progressive Collapse Simulator — Agent Guide
+# Entropy Robustness Index for Planar Frames — Agent Guide
 
-This document contains project-specific context for AI coding agents. Read this first before modifying any code.
+This document contains project-specific context for AI coding agents. Read this first before modifying any code. The authoritative public docs are `README.md` and `THEORY.md`; if anything here conflicts with them, they win.
 
 ---
 
 ## Project Overview
 
-This is a structural engineering research tool that uses **Shannon entropy of strain energy distribution** as a collapse predictor for frame structures under progressive member failure. It is built on a full 3D Euler-Bernoulli FEM solver with a modular architecture designed for extensibility and scientific reproducibility.
+This is a structural engineering research tool that uses the **Shannon entropy of the strain-energy distribution** to quantify robustness (the **Entropy Robustness Index `R_S`**) and to detect progressive collapse. It is built on a verified first-order linear-elastic **planar (2D)** Euler-Bernoulli frame solver with a modular architecture designed for extensibility and scientific reproducibility. See `THEORY.md` for the mathematical basis.
 
-The central hypothesis: when a structure is healthy, strain energy is distributed across members (high entropy). As failure progresses and energy localizes into fewer members, entropy drops sharply. A large negative spike in `dS/dt` signals imminent collapse — potentially earlier than displacement-based detection.
+The central idea: when a structure is healthy and redundant, strain energy is distributed across members (high entropy). When a member is lost and the load cannot be shared, energy localizes into fewer members (entropy drops). `R_S` aggregates the post-removal normalized entropy over the alternate-load-path member-removal set; it is dimensionless, bounded in `[0,1]`, and calibration-free. Entropy is treated as a coincident localization indicator, NOT a proven early-warning signal (see `THEORY.md`, Limitations).
 
 **Key formula:**
 ```
@@ -24,11 +24,10 @@ Where `Uᵢ` is the strain energy in member `i`.
 ## Technology Stack
 
 - **Language:** Python 3.11+ (requires Python >=3.11 per `pyproject.toml`)
-- **Core dependencies:** `numpy>=1.26`, `scipy>=1.12`, `matplotlib>=3.8`, `networkx>=3.2`, `Pillow>=10.0`
+- **Core dependencies:** `numpy>=1.26`, `matplotlib>=3.8`, `Pillow>=10.0` (scipy/networkx are NOT used)
 - **Build system:** `setuptools>=68` with `wheel`
 - **Packaging:** Standard PEP 517/518 via `pyproject.toml`
 - **Standalone executable:** PyInstaller (`pip install pyinstaller; pyinstaller --onefile main.py`)
-- **Benchmark reporting:** Optional `reportlab` for PDF generation
 
 ---
 
@@ -38,23 +37,25 @@ Where `Uᵢ` is the strain energy in member `i`.
 ├── core/
 │   └── models.py              # SHARED DATACLASSES — the only cross-module contract
 ├── structure/
-│   ├── stiffness.py           # Global K assembly, transformation matrix, boundary conditions
+│   ├── stiffness.py           # Planar K assembly, transformation (bending about global Z), BCs
 │   └── frames/
 │       ├── frame_2d_simple.py         # 3-node 2-member simply-supported beam
-│       ├── frame_3d_redundant.py      # 5-node 8-member space frame with apex load
+│       ├── frame_building_2d.py       # 12-node 15-member 2-bay 3-story moment frame
 │       └── frame_pratt_bridge.py      # 14-node 25-member 6-panel Pratt truss (30m span)
 ├── solver/
-│   ├── equilibrium.py         # Ku=F solver, full 12-DOF strain energy computation
-│   ├── failure.py             # Combined stress failure criterion, member marking
-│   └── redistribution.py      # ODE-based energy transfer after failure
+│   ├── equilibrium.py         # Ku=F (solve / solve_full), per-member strain energy
+│   └── failure.py             # Combined axial+bending stress failure criterion
 ├── entropy/
 │   ├── metrics.py             # S, dS/dt, normalized entropy
-│   └── localization.py        # Collapse detection (zscore/threshold), Gini index
+│   ├── localization.py        # Collapse detection (causal zscore/threshold), Gini index
+│   └── robustness.py          # Entropy Robustness Index R_S (alternate load path)
+├── analysis/
+│   └── criteria.py            # Four-criteria head-to-head comparison
 ├── simulation/
-│   ├── runner.py              # Main simulation loop
+│   ├── runner.py              # Main simulation loop (member removal + re-analysis)
 │   └── scenarios.py           # Scenario registry and predefined configs
 ├── visualization/
-│   ├── graph_view.py          # 3D frame viewer with energy heatmap
+│   ├── graph_view.py          # Frame viewer with strain-energy heatmap
 │   ├── entropy_plot.py        # S, dS/dt, Gini index plots
 │   └── animation.py           # GIF/MP4 animation of entropy evolution
 ├── tests/
@@ -123,22 +124,28 @@ pip install -r requirements.txt
 # List available scenarios
 python main.py --list
 
-# Run a scenario
-python main.py --scenario 2d_simple
-python main.py --scenario 3d_redundant --method threshold --steps 200
-python main.py --scenario pratt_bridge --steps 100 --save
+# Run a scenario (simulate mode)
+python main.py --mode simulate --scenario 2d_simple
+python main.py --mode simulate --scenario pratt_bridge --steps 100 --save
+
+# Entropy Robustness Index (alternate load path)
+python main.py --mode robustness --scenario building_2d
+
+# Four-criteria comparison
+python main.py --mode criteria --scenario pratt_bridge --steps 40 --load-step 0.15
 
 # Produce an animation
-python main.py --scenario pratt_bridge --animate --animate-fmt gif
+python main.py --mode simulate --scenario pratt_bridge --animate --animate-fmt gif
 ```
 
 **CLI arguments:**
-- `--scenario`: Frame to simulate (`2d_simple`, `3d_redundant`, `pratt_bridge`)
-- `--method`: Collapse detection — `zscore` (default) or `threshold`
-- `--steps`: Maximum simulation steps (default: 100)
+- `--mode`: `simulate` (default), `robustness`, or `criteria`
+- `--scenario`: Frame to analyse (`2d_simple`, `building_2d`, `pratt_bridge`)
+- `--method`: Collapse detection (simulate) — `zscore` (default) or `threshold`
+- `--steps`: Maximum steps for simulate/criteria (default: 100)
 - `--load-step`: Load factor increment per step (default: 0.2; 0.0 = static loading)
 - `--save`: Save figures to `output_figures/` instead of displaying
-- `--animate`: Render energy redistribution animation
+- `--animate`: Render entropy-evolution animation
 - `--animate-fmt`: `gif` (default) or `mp4`
 - `--fps`: Animation frames per second (default: 10)
 
@@ -224,12 +231,15 @@ def _detect(history: list[EntropyRecord], method: str) -> tuple[bool, int | None
 - Density: **kg/m³**
 - DOF convention: `[0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz]`
 
-### 2D Frame Constraint Rule
-For planar frames in the XY plane, **always** constrain out-of-plane DOFs on all nodes:
+### Planar Frame Constraint Rule (mandatory)
+This is a planar (2D) solver: all members must lie in the z=0 plane, and every
+node **must** constrain the out-of-plane DOFs:
 ```python
 PLANAR_DOFS = [2, 3, 4]  # uz, rx, ry
 ```
-This prevents singularity from unconstrained 3D DOFs.
+The element only carries axial and in-plane (about global Z) bending stiffness,
+so leaving out-of-plane DOFs free produces a singular system. The transformation
+matrix raises a ValueError if a member has out-of-plane extent (dz != 0).
 
 ### Boundary Condition Enforcement
 Loads applied at supported nodes are **automatically zeroed** during solve. Do not apply loads at pinned/roller support nodes unless you intend to load them before constraints are applied.
@@ -248,17 +258,19 @@ Loads applied at supported nodes are **automatically zeroed** during solve. Do n
 
 ## Testing Philosophy
 
-The test suite is organized in **7 phases** that mirror the architecture layers:
+The test suite is organized in **9 phases** that mirror the architecture layers:
 
 | Phase | File | Coverage |
 |-------|------|----------|
 | 1 | `test_phase1_models.py` | Dataclass instantiation, Material properties, frame `build()` |
 | 2 | `test_phase2_stiffness.py` | `K` shape, symmetry, boundary condition enforcement |
-| 3 | `test_phase3_solver.py` | Displacement correctness, strain energy magnitude, 3D frame |
-| 4 | `test_phase4_failure.py` | Combined stress criterion, member flag, energy conservation |
+| 3 | `test_phase3_solver.py` | Displacement correctness, strain energy magnitude, building frame |
+| 4 | `test_phase4_failure.py` | Combined stress criterion, member flag, alternate-load-path re-analysis |
 | 5 | `test_phase5_entropy.py` | `S` formula, `dS` sign, normalized entropy, Gini index |
 | 6 | `test_phase6_simulation.py` | End-to-end runs, collapse detection, failure sequence order |
 | 7 | `test_phase7_visualization.py` | Plot functions save without error, collapse overlay renders |
+| 8 | `test_phase8_robustness.py` | Stability test, R_S in [0,1], ranking, non-mutation |
+| 9 | `test_phase9_criteria.py` | Metric recording, entropy scale-invariance, four-criteria triggers |
 
 When adding new features, add tests to the appropriate phase file. Keep tests deterministic (no random data without fixed seeds).
 
@@ -266,18 +278,14 @@ When adding new features, add tests to the appropriate phase file. Keep tests de
 
 ## CI/CD
 
-Two GitHub Actions workflows are defined in `.github/workflows/`:
+One GitHub Actions workflow is defined in `.github/workflows/`:
 
-1. **`python-package.yml`**: Runs on push/PR to `main`
-   - Tests against Python 3.9, 3.10, 3.11
-   - Lints with `flake8` (syntax errors are fatal; style issues are warnings)
-   - Runs `pytest`
+- **`tests.yml`**: Runs on push/PR. Installs `requirements.txt`, runs the full
+  suite (`python tests/run_all_tests.py`, 10 phases) and the solver validation
+  (`python benchmark.py`).
 
-2. **`python-publish.yml`**: Triggers on release publication
-   - Builds package with `python -m build`
-   - Publishes to PyPI using trusted publishing (no API token)
-
-**Note:** The canonical test runner is `python tests/run_all_tests.py`. The `pytest` invocation in CI may discover tests, but the standalone scripts are the ground truth.
+**Note:** The canonical test runner is `python tests/run_all_tests.py`; the
+standalone phase scripts are the ground truth.
 
 ---
 
@@ -298,20 +306,20 @@ When modifying code, maintain the principle that the simulator operates only on 
 | File | Purpose |
 |------|---------|
 | `pyproject.toml` | Package metadata, dependencies, build backend, console script entry point |
-| `requirements.txt` | Runtime dependencies + PyInstaller (for executable builds) |
-| `architecture.ini` | Legacy textual architecture diagram (may be outdated) |
-| `.github/workflows/python-package.yml` | CI: test + lint on push/PR |
-| `.github/workflows/python-publish.yml` | CD: publish to PyPI on release |
+| `requirements.txt` | Runtime dependencies (numpy, matplotlib, Pillow) |
+| `requirements.lock` | Pinned versions used to produce the reported results |
+| `architecture.ini` | Textual architecture diagram |
+| `.github/workflows/tests.yml` | CI: run the test suite + validation on push/PR |
 
 ---
 
 ## Important Behavioral Notes
 
-- **Linear elastic only** — no plasticity, catenary action, or geometric nonlinearity.
+- **Planar, linear elastic, first order** — no plasticity, catenary action, geometric/second-order nonlinearity, or out-of-plane behaviour.
 - **Quasi-static** — no dynamic amplification (no DAF).
-- **Failure criterion:** `sigma_max = |N|/A + |M_max| * c / I` compared against `sigma_y`.
-- **Energy redistribution** is phenomenological (ODE coupling based on shared-node stiffness), not derived from equilibrium.
-- **Z-score collapse detection** is recommended for research; **threshold** is simpler but requires per-frame calibration.
+- **Failure criterion:** `sigma_max = |N|/A + |M_max| * c / I` compared against `sigma_y`, with `c` an explicit section property (`Material.c`).
+- **Energy redistribution** after a failure is the exact alternate-load-path re-analysis: the failed member is excluded from the assembly and `Ku=F` is re-solved. There is NO phenomenological diffusion law (the old `solver/redistribution.py` was removed).
+- **Z-score collapse detection** is causal (each step judged against strictly preceding steps) and calibration-free; **threshold** is simpler but requires per-frame calibration.
 - When `load_factor_step=0.0`, the simulation runs at the design load with no incremental ramp.
 
 ---

@@ -25,19 +25,19 @@ def test_2d_simple_runs():
     """scenario_2d_simple completes and returns a SimulationResult."""
     result = run_scenario("2d_simple", max_steps=20)
     assert result is not None
-    assert result.frame_name == "2D Simple Truss"
+    assert result.frame_name == "Two-span beam"
     assert len(result.energy_history) > 0
     assert len(result.entropy_history) == len(result.energy_history)
     print(f"  PASS: 2d_simple ran {len(result.energy_history)} steps")
 
 
-def test_3d_redundant_runs():
-    """scenario_3d_redundant completes and returns a SimulationResult."""
-    result = run_scenario("3d_redundant", max_steps=20)
+def test_building_2d_runs():
+    """scenario_building_2d completes and returns a SimulationResult."""
+    result = run_scenario("building_2d", max_steps=20)
     assert result is not None
-    assert result.frame_name == "3D Redundant Space Frame"
+    assert result.frame_name == "2D Moment Frame (2-bay, 3-story)"
     assert len(result.energy_history) > 0
-    print(f"  PASS: 3d_redundant ran {len(result.energy_history)} steps")
+    print(f"  PASS: building_2d ran {len(result.energy_history)} steps")
 
 
 def test_collapse_detected_with_low_sigma_y():
@@ -91,7 +91,7 @@ def test_unknown_scenario_raises():
 if __name__ == "__main__":
     print("=== Phase 6: Full Simulation Run ===")
     test_2d_simple_runs()
-    test_3d_redundant_runs()
+    test_building_2d_runs()
     test_collapse_detected_with_low_sigma_y()
     test_no_collapse_without_failure()
     test_failed_sequence_order()

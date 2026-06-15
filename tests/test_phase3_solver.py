@@ -15,7 +15,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import numpy as np
-from structure.frames import frame_2d_simple, frame_3d_redundant
+from structure.frames import frame_2d_simple, frame_building_2d
 from structure.stiffness import assemble_global_stiffness, apply_boundary_conditions
 from solver.equilibrium import solve, _build_load_vector, _solve_system
 
@@ -63,13 +63,13 @@ def test_total_energy_consistent():
     print(f"  PASS: Total energy consistent ({es.total_energy:.4f} J)")
 
 
-def test_solve_3d():
-    """solve() works on the 3D redundant frame without crashing."""
-    frame = frame_3d_redundant.build()
+def test_solve_building_frame():
+    """solve() works on the planar moment frame without crashing."""
+    frame = frame_building_2d.build()
     es = solve(frame, step=0)
-    assert len(es.member_states) == 8
-    assert es.total_energy >= 0
-    print(f"  PASS: 3D frame solved (total energy = {es.total_energy:.4f} J)")
+    assert len(es.member_states) == 15
+    assert es.total_energy > 0
+    print(f"  PASS: building frame solved (total energy = {es.total_energy:.4f} J)")
 
 
 if __name__ == "__main__":
@@ -78,5 +78,5 @@ if __name__ == "__main__":
     test_midspan_deflects_downward()
     test_strain_energies_non_negative()
     test_total_energy_consistent()
-    test_solve_3d()
+    test_solve_building_frame()
     print("All Phase 3 tests passed.\n")

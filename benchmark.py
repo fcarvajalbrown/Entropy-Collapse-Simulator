@@ -1,428 +1,501 @@
 """
 benchmark.py
 ============
-Validation benchmark for the Entropy Collapse Simulator.
+Verification and validation harness for the planar frame solver.
 
-Two independent references:
-  1. Analytical (closed-form) Euler-Bernoulli — 2D simple beam only
-  2. Independent NumPy direct stiffness solver — all three frames
-     (no shared code with the simulator solver modules)
+The solver is validated at two independent tiers, neither of which shares any
+code with structure/ or solver/:
 
-Eight figures produced for journal paper:
-  Benchmark:
-    Fig 1. Displacement comparison
-    Fig 2. Strain energy comparison
-    Fig 3. Per-member strain energy match
-  Entropy / collapse:
-    Fig 4. Entropy S vs step — all frames
-    Fig 5. dS/dt at collapse — all frames
-    Fig 6. Gini index evolution
-    Fig 7. Entropy vs load factor
-    Fig 8. Member failure sequence on entropy curve
+  Tier 1 - Analytical (exact).  Three Euler-Bernoulli cases with closed-form
+           solutions (simply-supported, fixed-fixed and cantilever beams).
+           The displacement-method frame element is exact for point loads
+           applied at nodes, so the expected error is ~0 (floating point).
 
-Usage:
-    python benchmark.py
+  Tier 2 - Independent dual solver.  A from-scratch 3-DOF-per-node planar
+           frame solver (independent_solve, below) re-analyses the redundant
+           benchmark frames; its joint displacements and total strain energy
+           are compared against the production solver.
+
+Note on external benchmarks: the Ziemian & Ziemian steel benchmark frames
+(Data in Brief, https://doi.org/10.1016/j.dib.2021.107510;
+data: https://doi.org/10.17632/39sjhchwtx.1) are a recognized external
+reference. Their verified results are SECOND-ORDER (P-Delta / stability),
+which this first-order linear solver does not model; they are cited as a
+recommended future cross-check rather than reproduced here, to avoid
+comparing against results outside this solver's modelling scope.
+
+Run:
+    python benchmark.py            # prints tables, writes validation/ report
+    python benchmark.py --figures  # additionally saves comparison figures
 """
 
-import os, sys
+from __future__ import annotations
+
+import argparse
+import math
+import os
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
+
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from core.models import FrameData, Node, Member, Load, Material
+from solver.equilibrium import solve_full
+from structure.frames import frame_building_2d, frame_pratt_bridge
 
-from structure.frames import frame_2d_simple, frame_3d_redundant, frame_pratt_bridge
-from solver.equilibrium import solve, _build_load_vector, apply_boundary_conditions_to_force, _solve_system
-from structure.stiffness import assemble_global_stiffness, apply_boundary_conditions
-from simulation.runner import run
-from entropy.metrics import max_entropy
 
-FIG_DIR = os.path.dirname(os.path.abspath(__file__))
-FRAME_LABELS = {"2d_simple":"2D Simple Beam","3d_redundant":"3D Redundant Frame","pratt_bridge":"Pratt Truss Bridge"}
-ENTROPY_COLORS = {"2d_simple":"steelblue","3d_redundant":"darkorange","pratt_bridge":"firebrick"}
-COLORS = {"analytical":"#2A5DB0","independent":"#E07B00","simulator":"#C0392B"}
+# ===========================================================================
+# Independent 3-DOF planar frame solver (no shared code with structure/solver)
+# ===========================================================================
 
-# ── Analytical ──────────────────────────────────────────────────────────────
-def analytical_2d_simple():
-    P,L,E,I = 50_000.0,10.0,200e9,1e-4
-    return {"delta_midspan": P*L**3/(48*E*I), "U_total": P**2*L**3/(96*E*I)}
-
-# ── Independent NumPy direct stiffness ──────────────────────────────────────
-def _indep_local_k(E,A,I,L):
-    EA=E*A/L; k=np.zeros((12,12))
-    k[0,0]=EA; k[0,6]=-EA; k[6,0]=-EA; k[6,6]=EA
-    c1=12*E*I/L**3; c2=6*E*I/L**2; c3=4*E*I/L; c4=2*E*I/L
-    for r,c,v in [(1,1,c1),(1,5,c2),(1,7,-c1),(1,11,c2),(5,1,c2),(5,5,c3),
-                  (5,7,-c2),(5,11,c4),(7,1,-c1),(7,5,-c2),(7,7,c1),(7,11,-c2),
-                  (11,1,c2),(11,5,c4),(11,7,-c2),(11,11,c3)]:
-        k[r,c]=v
-    for r,c,v in [(2,2,c1),(2,4,-c2),(2,8,-c1),(2,10,-c2),(4,2,-c2),(4,4,c3),
-                  (4,8,c2),(4,10,c4),(8,2,-c1),(8,4,c2),(8,8,c1),(8,10,c2),
-                  (10,2,-c2),(10,4,c4),(10,8,c2),(10,10,c3)]:
-        k[r,c]=v
-    GJ=0.5*E/1.3*I/L
-    k[3,3]=GJ; k[3,9]=-GJ; k[9,3]=-GJ; k[9,9]=GJ
+def _planar_element_stiffness(E, A, I, L) -> np.ndarray:
+    """6x6 local stiffness of a 2D Euler-Bernoulli frame element."""
+    k = np.zeros((6, 6))
+    ea = E * A / L
+    ei = E * I
+    k[0, 0] = k[3, 3] = ea
+    k[0, 3] = k[3, 0] = -ea
+    k[1, 1] = k[4, 4] = 12 * ei / L**3
+    k[1, 4] = k[4, 1] = -12 * ei / L**3
+    k[1, 2] = k[2, 1] = 6 * ei / L**2
+    k[1, 5] = k[5, 1] = 6 * ei / L**2
+    k[4, 2] = k[2, 4] = -6 * ei / L**2
+    k[4, 5] = k[5, 4] = -6 * ei / L**2
+    k[2, 2] = k[5, 5] = 4 * ei / L
+    k[2, 5] = k[5, 2] = 2 * ei / L
     return k
 
-def _indep_T(ns,ne):
-    dx=np.array(ne)-np.array(ns); L=np.linalg.norm(dx); ex=dx/L
-    ref=np.array([0.,0.,1.])
-    if abs(np.dot(ex,ref))>0.95: ref=np.array([0.,1.,0.])
-    ez=np.cross(ex,ref); ez/=np.linalg.norm(ez); ey=np.cross(ez,ex)
-    R=np.array([ex,ey,ez]); T=np.zeros((12,12))
-    for i in range(4): T[3*i:3*i+3,3*i:3*i+3]=R
+
+def _planar_transform(c, s) -> np.ndarray:
+    """6x6 transformation matrix from global to local for direction (c, s)."""
+    T = np.zeros((6, 6))
+    R = np.array([[c, s, 0], [-s, c, 0], [0, 0, 1]])
+    T[:3, :3] = R
+    T[3:, 3:] = R
     return T
 
-def _indep_solve(frame_data):
-    nodes=frame_data.nodes; members=frame_data.members
-    n_dof=len(nodes)*6; K=np.zeros((n_dof,n_dof)); F=np.zeros(n_dof)
-    def get_node(nid): return next(n for n in nodes if n.id==nid)
-    for m in members:
-        ni=get_node(m.node_start); nj=get_node(m.node_end)
-        L=np.sqrt((nj.x-ni.x)**2+(nj.y-ni.y)**2+(nj.z-ni.z)**2)
-        kl=_indep_local_k(m.E,m.A,m.I,L)
-        T=_indep_T((ni.x,ni.y,ni.z),(nj.x,nj.y,nj.z))
-        kg=T.T@kl@T
-        dofs=list(range(ni.id*6,ni.id*6+6))+list(range(nj.id*6,nj.id*6+6))
-        for a,da in enumerate(dofs):
-            for b,db in enumerate(dofs): K[da,db]+=kg[a,b]
-    for load in frame_data.loads: F[load.node_id*6+load.dof]+=load.magnitude
-    # For planar (2D) frames in XY plane, constrain out-of-plane DOFs on all nodes
-    # (uz=2, rx=3, ry=4) to prevent singularity from unconstrained 3D DOFs.
-    all_z = [n.z for n in nodes]
-    is_planar = (max(all_z) - min(all_z)) < 1e-9
-    planar_dofs = [2, 3, 4] if is_planar else []
 
-    for node in nodes:
-        fixed = list(node.fixed_dofs) + planar_dofs
-        for dof in fixed:
-            idx=node.id*6+dof; K[idx,:]=0; K[:,idx]=0; K[idx,idx]=1; F[idx]=0
-    u=np.linalg.solve(K,F)
-    me=np.zeros(len(members))
-    for i,m in enumerate(members):
-        ni=get_node(m.node_start); nj=get_node(m.node_end)
-        L=np.sqrt((nj.x-ni.x)**2+(nj.y-ni.y)**2+(nj.z-ni.z)**2)
-        kl=_indep_local_k(m.E,m.A,m.I,L)
-        T=_indep_T((ni.x,ni.y,ni.z),(nj.x,nj.y,nj.z))
-        dofs=list(range(ni.id*6,ni.id*6+6))+list(range(nj.id*6,nj.id*6+6))
-        ul=T@u[dofs]; fl=kl@ul; me[i]=max(0.5*ul@fl,0.0)
-    return u,me
+def independent_solve(frame: FrameData) -> Tuple[Dict[int, np.ndarray], float]:
+    """
+    Solve a planar frame with a self-contained 3-DOF-per-node direct stiffness
+    method. Reads geometry/loads from a FrameData but shares NO code with the
+    production assembler/solver.
 
-# ── Simulator solver ─────────────────────────────────────────────────────────
-def _sim_solve(frame_data):
-    K=assemble_global_stiffness(frame_data); K=apply_boundary_conditions(K,frame_data)
-    F=_build_load_vector(frame_data); F=apply_boundary_conditions_to_force(F,frame_data)
-    u=_solve_system(K,F)
-    es=solve(frame_data,step=0)
-    return u, np.array([ms.strain_energy for ms in es.member_states])
+    In-plane DOFs only: (ux, uy, rz) -> local indices (0, 1, 2). Out-of-plane
+    DOFs in the FrameData are ignored. A node DOF is fixed if it appears in
+    fixed_dofs as 0 (ux), 1 (uy) or 5 (rz).
 
-# ── Per-frame benchmarks ─────────────────────────────────────────────────────
-def benchmark_2d_simple():
-    an=analytical_2d_simple()
-    f=frame_2d_simple.build(); u,me=_indep_solve(f)
-    ind={"delta_midspan":abs(u[7]),"U_total":float(me.sum()),"member_energies":me}
-    f=frame_2d_simple.build(); u,me=_sim_solve(f)
-    sim={"delta_midspan":abs(u[7]),"U_total":float(me.sum()),"member_energies":me}
-    return {"analytical":an,"independent":ind,"simulator":sim}
+    Returns:
+        (displacements, total_strain_energy)
+        displacements maps node_id -> array([ux, uy, rz]).
+    """
+    node_index = {n.id: i for i, n in enumerate(frame.nodes)}
+    coords = {n.id: (n.x, n.y) for n in frame.nodes}
+    n_dof = 3 * len(frame.nodes)
+    K = np.zeros((n_dof, n_dof))
 
-def benchmark_3d_redundant():
-    f=frame_3d_redundant.build(); u,me=_indep_solve(f)
-    ind={"delta_apex":abs(u[4*6+2]),"U_total":float(me.sum()),"member_energies":me}
-    f=frame_3d_redundant.build(); u,me=_sim_solve(f)
-    sim={"delta_apex":abs(u[4*6+2]),"U_total":float(me.sum()),"member_energies":me}
-    return {"independent":ind,"simulator":sim}
+    def gdof(node_id, local):
+        return 3 * node_index[node_id] + local
 
-def benchmark_pratt_bridge():
-    f=frame_pratt_bridge.build(); u,me=_indep_solve(f)
-    ind={"delta_midspan":abs(u[3*6+1]),"U_total":float(me.sum()),"member_energies":me}
-    f=frame_pratt_bridge.build(); u,me=_sim_solve(f)
-    sim={"delta_midspan":abs(u[3*6+1]),"U_total":float(me.sum()),"member_energies":me}
-    return {"independent":ind,"simulator":sim}
+    for m in frame.members:
+        if m.failed:
+            continue
+        (x1, y1), (x2, y2) = coords[m.node_start], coords[m.node_end]
+        L = math.hypot(x2 - x1, y2 - y1)
+        c, s = (x2 - x1) / L, (y2 - y1) / L
+        # Truss bars carry axial force only; zero the bending part of I.
+        I_eff = 0.0 if getattr(m, "is_truss", False) else m.I
+        kl = _planar_element_stiffness(m.E, m.A, I_eff, L)
+        T = _planar_transform(c, s)
+        kg = T.T @ kl @ T
+        dofs = [gdof(m.node_start, 0), gdof(m.node_start, 1), gdof(m.node_start, 2),
+                gdof(m.node_end, 0), gdof(m.node_end, 1), gdof(m.node_end, 2)]
+        for a in range(6):
+            for b in range(6):
+                K[dofs[a], dofs[b]] += kg[a, b]
 
-# ── Entropy helpers ──────────────────────────────────────────────────────────
-def run_entropy_simulations():
-    configs=[("2d_simple",frame_2d_simple,0.5),
-             ("3d_redundant",frame_3d_redundant,0.3),
-             ("pratt_bridge",frame_pratt_bridge,0.2)]
-    out={}
-    for name,mod,step in configs:
-        f=mod.build()
-        out[name]=run(f,max_steps=200,load_factor_start=1.0,load_factor_step=step)
-        r=out[name]
-        print(f"  {name}: {len(r.energy_history)} steps, collapse={r.collapse_detected} "
-              f"at {r.collapse_step}, failures={r.failed_sequence}")
+    F = np.zeros(n_dof)
+    local_of = {0: 0, 1: 1, 5: 2}
+    for load in frame.loads:
+        if load.dof in local_of:
+            F[gdof(load.node_id, local_of[load.dof])] += load.magnitude
+
+    # Reduce out fixed DOFs.
+    fixed = set()
+    for n in frame.nodes:
+        for d in n.fixed_dofs:
+            if d in local_of:
+                fixed.add(gdof(n.id, local_of[d]))
+    free = [i for i in range(n_dof) if i not in fixed]
+
+    u = np.zeros(n_dof)
+    Kff = K[np.ix_(free, free)]
+    u[free] = np.linalg.solve(Kff, F[free])
+
+    total_energy = float(0.5 * u @ K @ u)
+
+    displacements = {
+        n.id: u[3 * node_index[n.id]: 3 * node_index[n.id] + 3] for n in frame.nodes
+    }
+    return displacements, total_energy
+
+
+def independent_member_energy(frame: FrameData) -> Dict[int, float]:
+    """
+    Per-member elastic strain energy from the independent solver, used to
+    cross-check the strain-energy DISTRIBUTION {p_i} that drives the entropy.
+    """
+    disp, _ = independent_solve(frame)
+    coords = {n.id: (n.x, n.y) for n in frame.nodes}
+    out: Dict[int, float] = {}
+    for m in frame.members:
+        if m.failed:
+            out[m.id] = 0.0
+            continue
+        (x1, y1), (x2, y2) = coords[m.node_start], coords[m.node_end]
+        L = math.hypot(x2 - x1, y2 - y1)
+        c, s = (x2 - x1) / L, (y2 - y1) / L
+        I_eff = 0.0 if getattr(m, "is_truss", False) else m.I
+        kl = _planar_element_stiffness(m.E, m.A, I_eff, L)
+        T = _planar_transform(c, s)
+        ue = np.concatenate([disp[m.node_start], disp[m.node_end]])  # 6 in global
+        ul = T @ ue
+        out[m.id] = float(0.5 * ul @ kl @ ul)
     return out
 
-def _norm_entropy(result):
-    out=[]
-    for es,er in zip(result.energy_history,result.entropy_history):
-        n=sum(1 for ms in es.member_states if not ms.failed)
-        sm=max_entropy(n)
-        out.append(er.entropy/sm if sm>0 else 0.0)
-    return out
 
-def _gini(dist):
-    if not dist: return 0.0
-    v=np.sort([p for _,p in dist]); n=len(v)
-    if v.sum()==0: return 0.0
-    return float((2*np.sum(np.arange(1,n+1)*v))/(n*v.sum())-(n+1)/n)
+# ===========================================================================
+# Tier 1 - Analytical closed-form cases
+# ===========================================================================
 
-def rel_err(ref,val):
-    if ref==0: return 0.0
-    return abs(val-ref)/abs(ref)*100.0
+@dataclass
+class AnalyticalCase:
+    name: str
+    frame: FrameData
+    probe_node: int          # node whose vertical deflection is checked
+    delta_exact: float       # closed-form deflection magnitude (m)
+    U_exact: float           # closed-form strain energy (J)
+    reference: str
 
-# ── Figure helpers ───────────────────────────────────────────────────────────
-def _save(fig,name):
-    p=os.path.join(FIG_DIR,name); fig.savefig(p,dpi=150,bbox_inches="tight"); plt.close(fig); return p
 
-def fig1_displacement(bench):
-    fig,axes=plt.subplots(1,3,figsize=(13,5))
-    fig.suptitle("Fig 1 — Displacement Comparison",fontsize=13,fontweight="bold")
-    dks=["delta_midspan","delta_apex","delta_midspan"]
-    units=["Midspan uy (mm)","Apex uz (mm)","Midspan uy (mm)"]
-    for ax,key,dk,unit in zip(axes,["2d_simple","3d_redundant","pratt_bridge"],dks,units):
-        r=bench[key]; vals=[]; labels=[]; cols=[]
-        for rk,rl in [("analytical","Analytical"),("independent","Independent"),("simulator","Simulator")]:
-            if rk in r and dk in r[rk]:
-                vals.append(r[rk][dk]*1000); labels.append(rl); cols.append(COLORS[rk])
-        bars=ax.bar(labels,vals,color=cols,alpha=0.85,width=0.5)
-        for bar,v in zip(bars,vals):
-            ax.text(bar.get_x()+bar.get_width()/2,bar.get_height()*1.02,f"{v:.4f}",ha="center",va="bottom",fontsize=8)
-        ax.set_title(FRAME_LABELS[key],fontsize=10); ax.set_ylabel(unit,fontsize=9); ax.grid(axis="y",alpha=0.3)
-    plt.tight_layout(); return _save(fig,"fig1_displacement.png")
+def _beam_material(E=200e9, A=0.01, I=1e-4) -> Material:
+    return Material(name="benchmark", E=E, A=A, I=I, sigma_y=1e30, c=0.1)
 
-def fig2_strain_energy(bench):
-    fig,axes=plt.subplots(1,3,figsize=(13,5))
-    fig.suptitle("Fig 2 — Total Strain Energy Comparison",fontsize=13,fontweight="bold")
-    for ax,key in zip(axes,["2d_simple","3d_redundant","pratt_bridge"]):
-        r=bench[key]; vals=[]; labels=[]; cols=[]
-        for rk,rl in [("analytical","Analytical"),("independent","Independent"),("simulator","Simulator")]:
-            if rk in r and "U_total" in r[rk]:
-                vals.append(r[rk]["U_total"]); labels.append(rl); cols.append(COLORS[rk])
-        bars=ax.bar(labels,vals,color=cols,alpha=0.85,width=0.5)
-        for bar,v in zip(bars,vals):
-            ax.text(bar.get_x()+bar.get_width()/2,bar.get_height()*1.02,f"{v:.2f}",ha="center",va="bottom",fontsize=8)
-        ax.set_title(FRAME_LABELS[key],fontsize=10); ax.set_ylabel("Strain Energy (J)",fontsize=9); ax.grid(axis="y",alpha=0.3)
-    plt.tight_layout(); return _save(fig,"fig2_strain_energy.png")
 
-def fig3_member_energies(bench):
-    fig,axes=plt.subplots(1,3,figsize=(14,5))
-    fig.suptitle("Fig 3 — Per-Member Strain Energy (Independent vs Simulator)",fontsize=13,fontweight="bold")
-    for ax,key in zip(axes,["2d_simple","3d_redundant","pratt_bridge"]):
-        r=bench[key]; e_ind=r["independent"]["member_energies"]; e_sim=r["simulator"]["member_energies"]
-        n=len(e_ind); x=np.arange(n); w=0.35
-        ax.bar(x-w/2,e_ind,w,label="Independent",color=COLORS["independent"],alpha=0.85)
-        ax.bar(x+w/2,e_sim,w,label="Simulator",color=COLORS["simulator"],alpha=0.85)
-        ax.set_title(FRAME_LABELS[key],fontsize=10); ax.set_xlabel("Member ID",fontsize=9)
-        ax.set_ylabel("Strain Energy (J)",fontsize=9); ax.set_xticks(x)
-        ax.legend(fontsize=8); ax.grid(axis="y",alpha=0.3)
-    plt.tight_layout(); return _save(fig,"fig3_member_energies.png")
-
-def fig4_entropy_evolution(sr):
-    fig,ax=plt.subplots(figsize=(10,5))
-    fig.suptitle("Fig 4 — Structural Entropy Evolution",fontsize=13,fontweight="bold")
-    for key,result in sr.items():
-        steps=[r.step for r in result.entropy_history]; sn=_norm_entropy(result)
-        ax.plot(steps,sn,linewidth=2,color=ENTROPY_COLORS[key],label=FRAME_LABELS[key])
-        if result.collapse_detected and result.collapse_step is not None:
-            ax.axvline(result.collapse_step,color=ENTROPY_COLORS[key],linestyle="--",linewidth=1,alpha=0.6)
-    ax.set_xlabel("Simulation Step",fontsize=10); ax.set_ylabel("S / S_max",fontsize=10)
-    ax.set_ylim(0,1.1); ax.legend(fontsize=9); ax.grid(True,alpha=0.3)
-    plt.tight_layout(); return _save(fig,"fig4_entropy_evolution.png")
-
-def fig5_dsdt_collapse(sr):
-    fig,axes=plt.subplots(1,3,figsize=(14,5))
-    fig.suptitle("Fig 5 — Entropy Rate of Change dS/dt at Collapse",fontsize=13,fontweight="bold")
-    for ax,(key,result) in zip(axes,sr.items()):
-        steps=[r.step for r in result.entropy_history]; ds=[r.delta_entropy for r in result.entropy_history]
-        ax.plot(steps,ds,linewidth=2,color=ENTROPY_COLORS[key])
-        ax.axhline(0,color="black",linewidth=0.8,linestyle="--",alpha=0.5)
-        if result.collapse_detected and result.collapse_step is not None:
-            ax.axvline(result.collapse_step,color="red",linewidth=1.8,linestyle="--",alpha=0.8,
-                       label=f"Collapse (step {result.collapse_step})")
-            ax.legend(fontsize=8)
-        ax.set_title(FRAME_LABELS[key],fontsize=10); ax.set_xlabel("Step",fontsize=9)
-        ax.set_ylabel("dS / dt",fontsize=9); ax.grid(True,alpha=0.3)
-    plt.tight_layout(); return _save(fig,"fig5_dsdt_collapse.png")
-
-def fig6_gini_evolution(sr):
-    fig,ax=plt.subplots(figsize=(10,5))
-    fig.suptitle("Fig 6 — Gini Energy Localization Index",fontsize=13,fontweight="bold")
-    for key,result in sr.items():
-        steps=[r.step for r in result.entropy_history]
-        gini=[_gini(r.energy_distribution) for r in result.entropy_history]
-        ax.plot(steps,gini,linewidth=2,color=ENTROPY_COLORS[key],label=FRAME_LABELS[key])
-        if result.collapse_detected and result.collapse_step is not None:
-            ax.axvline(result.collapse_step,color=ENTROPY_COLORS[key],linestyle="--",linewidth=1,alpha=0.6)
-    ax.set_xlabel("Simulation Step",fontsize=10); ax.set_ylabel("Gini Index",fontsize=10)
-    ax.set_ylim(0,1.05); ax.legend(fontsize=9); ax.grid(True,alpha=0.3)
-    plt.tight_layout(); return _save(fig,"fig6_gini_evolution.png")
-
-def fig7_entropy_vs_load(sr):
-    configs={"2d_simple":0.5,"3d_redundant":0.3,"pratt_bridge":0.2}
-    fig,ax=plt.subplots(figsize=(10,5))
-    fig.suptitle("Fig 7 — Structural Entropy vs Load Factor",fontsize=13,fontweight="bold")
-    for key,result in sr.items():
-        step=configs[key]; lambdas=[1.0+i*step for i in range(len(result.entropy_history))]
-        sn=_norm_entropy(result)
-        ax.plot(lambdas,sn,linewidth=2,color=ENTROPY_COLORS[key],label=FRAME_LABELS[key])
-        if result.collapse_detected and result.collapse_step is not None:
-            ax.axvline(1.0+result.collapse_step*step,color=ENTROPY_COLORS[key],linestyle="--",linewidth=1,alpha=0.6)
-    ax.set_xlabel("Load Factor lambda",fontsize=10); ax.set_ylabel("S / S_max",fontsize=10)
-    ax.set_ylim(0,1.1); ax.legend(fontsize=9); ax.grid(True,alpha=0.3)
-    plt.tight_layout(); return _save(fig,"fig7_entropy_vs_load.png")
-
-def fig8_failure_sequence(sr):
-    key="pratt_bridge"; result=sr[key]
-    steps=[r.step for r in result.entropy_history]; sn=_norm_entropy(result)
-    fig,ax=plt.subplots(figsize=(11,5))
-    fig.suptitle("Fig 8 — Member Failure Sequence on Entropy Curve (Pratt Bridge)",fontsize=13,fontweight="bold")
-    ax.plot(steps,sn,linewidth=2,color=ENTROPY_COLORS[key],zorder=2)
-    if result.failed_sequence:
-        fsteps=np.linspace(0,len(steps)-1,len(result.failed_sequence),dtype=int)
-        for fs,mid in zip(fsteps,result.failed_sequence):
-            ax.axvline(fs,color="grey",linewidth=0.9,linestyle=":",alpha=0.7)
-            yp=sn[min(fs,len(sn)-1)]
-            ax.annotate(f"M{mid}",xy=(fs,yp),xytext=(fs+0.3,yp+0.04),fontsize=7,color="grey",
-                        arrowprops=dict(arrowstyle="-",color="grey",lw=0.7))
-    if result.collapse_detected and result.collapse_step is not None:
-        ax.axvline(result.collapse_step,color="red",linewidth=1.8,linestyle="--",alpha=0.85,
-                   label=f"Collapse (step {result.collapse_step})")
-    ax.set_xlabel("Simulation Step",fontsize=10); ax.set_ylabel("S / S_max",fontsize=10)
-    ax.set_ylim(0,1.1); ax.legend(fontsize=9); ax.grid(True,alpha=0.3)
-    plt.tight_layout(); return _save(fig,"fig8_failure_sequence.png")
-
-# ── PDF report ───────────────────────────────────────────────────────────────
-def build_pdf(bench,sim_results,fig_paths,output_path):
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import cm
-    from reportlab.lib import colors
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import (SimpleDocTemplate,Paragraph,Spacer,Table,
-                                     TableStyle,Image,PageBreak,HRFlowable)
-    W,H=A4
-    doc=SimpleDocTemplate(output_path,pagesize=A4,
-        leftMargin=2.5*cm,rightMargin=2.5*cm,topMargin=2.5*cm,bottomMargin=2.5*cm)
-    styles=getSampleStyleSheet()
-    def S(name,**kw): return ParagraphStyle(name,parent=styles["Normal"],**kw)
-    title_s=S("T",fontSize=16,fontName="Helvetica-Bold",spaceAfter=4,alignment=1)
-    h1_s=S("H1",fontSize=13,fontName="Helvetica-Bold",spaceBefore=14,spaceAfter=4)
-    h2_s=S("H2",fontSize=11,fontName="Helvetica-Bold",spaceBefore=10,spaceAfter=3)
-    body_s=S("B",fontSize=10,leading=14)
-    caption_s=S("C",fontSize=9,leading=12,textColor=colors.grey)
-    HDR=colors.HexColor("#2A5DB0")
-    def tbl_style():
-        return TableStyle([("BACKGROUND",(0,0),(-1,0),HDR),("TEXTCOLOR",(0,0),(-1,0),colors.white),
-            ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),9),
-            ("ALIGN",(1,0),(-1,-1),"RIGHT"),("ALIGN",(0,0),(0,-1),"LEFT"),
-            ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F5F5F5")]),
-            ("GRID",(0,0),(-1,-1),0.5,colors.HexColor("#CCCCCC")),
-            ("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4)])
-    IW=W-5*cm; story=[]
-    story+=[Spacer(1,1*cm),Paragraph("Benchmark Validation Report",title_s),
-            Paragraph("Entropy-Based Progressive Collapse Simulator",h2_s),
-            HRFlowable(width="100%",thickness=1,color=HDR),Spacer(1,0.4*cm),
-            Paragraph("Validates the simulator FEM solver against analytical solutions and "
-                      "an independent NumPy direct stiffness implementation. Eight figures "
-                      "document solver accuracy and the entropy-based collapse detection methodology.",body_s),
-            Spacer(1,0.5*cm),Paragraph("1. Solver Benchmark",h1_s)]
-
-    # 2D table
-    story.append(Paragraph("1.1 2D Simply-Supported Beam",h2_s))
-    r2=bench["2d_simple"]; an,ind,sim=r2["analytical"],r2["independent"],r2["simulator"]
-    data=[["Quantity","Analytical","Independent","Simulator","Err vs An (%)","Err vs Ind (%)"],
-          ["Midspan delta (mm)",f"{an['delta_midspan']*1000:.6f}",f"{ind['delta_midspan']*1000:.6f}",
-           f"{sim['delta_midspan']*1000:.6f}",f"{rel_err(an['delta_midspan'],sim['delta_midspan']):.6f}",
-           f"{rel_err(ind['delta_midspan'],sim['delta_midspan']):.6f}"],
-          ["Strain energy (J)",f"{an['U_total']:.6f}",f"{ind['U_total']:.6f}",f"{sim['U_total']:.6f}",
-           f"{rel_err(an['U_total'],sim['U_total']):.6f}",f"{rel_err(ind['U_total'],sim['U_total']):.6f}"]]
-    t=Table(data,colWidths=[3.5*cm,2.4*cm,2.4*cm,2.4*cm,2.8*cm,2.8*cm]); t.setStyle(tbl_style())
-    story+=[t,Spacer(1,0.3*cm),Paragraph("1.2 3D Redundant Space Frame",h2_s)]
-    r3=bench["3d_redundant"]; ind3,sim3=r3["independent"],r3["simulator"]
-    data3=[["Quantity","Independent","Simulator","Relative Error (%)"],
-           ["Apex delta uz (mm)",f"{ind3['delta_apex']*1000:.6f}",f"{sim3['delta_apex']*1000:.6f}",
-            f"{rel_err(ind3['delta_apex'],sim3['delta_apex']):.6f}"],
-           ["Strain energy (J)",f"{ind3['U_total']:.6f}",f"{sim3['U_total']:.6f}",
-            f"{rel_err(ind3['U_total'],sim3['U_total']):.6f}"]]
-    t3=Table(data3,colWidths=[5.0*cm,3.8*cm,3.8*cm,3.8*cm]); t3.setStyle(tbl_style())
-    story+=[t3,Spacer(1,0.3*cm),Paragraph("1.3 Pratt Truss Bridge",h2_s)]
-    rp=bench["pratt_bridge"]; indp,simp=rp["independent"],rp["simulator"]
-    datap=[["Quantity","Independent","Simulator","Relative Error (%)"],
-           ["Midspan delta uy (mm)",f"{indp['delta_midspan']*1000:.6f}",f"{simp['delta_midspan']*1000:.6f}",
-            f"{rel_err(indp['delta_midspan'],simp['delta_midspan']):.6f}"],
-           ["Strain energy (J)",f"{indp['U_total']:.6f}",f"{simp['U_total']:.6f}",
-            f"{rel_err(indp['U_total'],simp['U_total']):.6f}"]]
-    tp=Table(datap,colWidths=[5.0*cm,3.8*cm,3.8*cm,3.8*cm]); tp.setStyle(tbl_style())
-    story+=[tp,PageBreak(),Paragraph("2. Entropy Simulation Results",h1_s)]
-    sim_data=[["Frame","Steps","Collapse","Collapse Step","Members Failed"]]
-    for key,result in sim_results.items():
-        sim_data.append([FRAME_LABELS[key],str(len(result.energy_history)),
-                         "Yes" if result.collapse_detected else "No",
-                         str(result.collapse_step) if result.collapse_detected else "n/a",
-                         str(len(result.failed_sequence))])
-    ts=Table(sim_data,colWidths=[5.0*cm,2.0*cm,2.2*cm,3.0*cm,3.5*cm]); ts.setStyle(tbl_style())
-    story+=[ts,PageBreak(),Paragraph("3. Figures",h1_s)]
-    captions=["Fig 1. Displacement comparison: analytical (blue), independent NumPy (orange), simulator (red).",
-              "Fig 2. Total strain energy comparison across reference methods.",
-              "Fig 3. Per-member strain energy: independent NumPy vs simulator (member-by-member).",
-              "Fig 4. Normalized structural entropy S/S_max vs simulation step. Dashed = collapse.",
-              "Fig 5. Entropy rate of change dS/dt. Negative spike at collapse is the detection signal.",
-              "Fig 6. Gini localization index. Rises toward 1.0 as energy concentrates before collapse.",
-              "Fig 7. Entropy vs load factor lambda. Shows plateau then rapid drop at failure onset.",
-              "Fig 8. Member failure sequence annotated on entropy curve (Pratt bridge)."]
-    for path,caption in zip(fig_paths,captions):
-        story+=[Image(path,width=IW,height=IW*0.40),Paragraph(caption,caption_s),Spacer(1,0.4*cm)]
-    story+=[Paragraph("4. Summary",h1_s),
-            Paragraph("The simulator achieves zero relative error vs analytical for the 2D beam "
-                      "and sub-0.01% agreement with the independent NumPy solver across all frames "
-                      "and all members. Entropy-based collapse detection fires consistently across "
-                      "all three structural typologies.",body_s)]
-    doc.build(story); print(f"  PDF saved: {output_path}")
-
-# ── Main ─────────────────────────────────────────────────────────────────────
-def main():
-    print("="*60)
-    print("Entropy Collapse Simulator — Benchmark + Paper Figures")
-    print("="*60)
-
-    print("\n[Benchmark] Running solver comparisons ...")
-    bench={}
-    for name,fn in [("2d_simple",benchmark_2d_simple),
-                    ("3d_redundant",benchmark_3d_redundant),
-                    ("pratt_bridge",benchmark_pratt_bridge)]:
-        print(f"  {name} ...")
-        bench[name]=fn()
-        r=bench[name]; ind=r["independent"]; sim=r["simulator"]
-        dk="delta_midspan" if "delta_midspan" in ind else "delta_apex"
-        if "analytical" in r:
-            an=r["analytical"]
-            print(f"    Analytical  : delta={an[dk]*1000:.6f} mm, U={an['U_total']:.4f} J")
-        print(f"    Independent : delta={ind[dk]*1000:.6f} mm, U={ind['U_total']:.4f} J")
-        print(f"    Simulator   : delta={sim[dk]*1000:.6f} mm, U={sim['U_total']:.4f} J")
-        print(f"    Error       : delta={rel_err(ind[dk],sim[dk]):.6f}%, U={rel_err(ind['U_total'],sim['U_total']):.6f}%")
-
-    print("\n[Entropy] Running collapse simulations ...")
-    sim_results=run_entropy_simulations()
-
-    print("\n[Figures] Generating all 8 figures ...")
-    fig_paths=[
-        fig1_displacement(bench),
-        fig2_strain_energy(bench),
-        fig3_member_energies(bench),
-        fig4_entropy_evolution(sim_results),
-        fig5_dsdt_collapse(sim_results),
-        fig6_gini_evolution(sim_results),
-        fig7_entropy_vs_load(sim_results),
-        fig8_failure_sequence(sim_results),
+def _simply_supported_case() -> AnalyticalCase:
+    """Simply-supported beam, central point load. delta = PL^3/48EI."""
+    E, I, A = 200e9, 1e-4, 0.01
+    L, P = 10.0, 50_000.0
+    mat = _beam_material(E, A, I)
+    nodes = [
+        Node(0, 0.0, 0.0, 0.0, fixed_dofs=[0, 1, 2, 3, 4]),     # pin (rz free)
+        Node(1, L / 2, 0.0, 0.0, fixed_dofs=[2, 3, 4]),
+        Node(2, L, 0.0, 0.0, fixed_dofs=[1, 2, 3, 4]),          # roller (ux free, rz free)
     ]
-    for p in fig_paths: print(f"  {os.path.basename(p)}")
+    members = [Member(0, 0, 1, mat), Member(1, 1, 2, mat)]
+    loads = [Load(1, 1, -P)]
+    frame = FrameData("Simply-supported beam", nodes, members, loads)
+    delta = P * L**3 / (48 * E * I)
+    U = P**2 * L**3 / (96 * E * I)
+    return AnalyticalCase("Simply-supported beam", frame, 1, delta, U,
+                          "Gere & Goodno, Mechanics of Materials")
 
-    print("\n[PDF] Building report ...")
-    pdf_path=os.path.join(FIG_DIR,"benchmark_report.pdf")
-    build_pdf(bench,sim_results,fig_paths,pdf_path)
-    print(f"\nDone. Report: {pdf_path}")
 
-if __name__=="__main__":
+def _fixed_fixed_case() -> AnalyticalCase:
+    """Clamped-clamped beam, central point load. delta = PL^3/192EI."""
+    E, I, A = 200e9, 1e-4, 0.01
+    L, P = 10.0, 50_000.0
+    mat = _beam_material(E, A, I)
+    nodes = [
+        Node(0, 0.0, 0.0, 0.0, fixed_dofs=[0, 1, 2, 3, 4, 5]),  # fully fixed
+        Node(1, L / 2, 0.0, 0.0, fixed_dofs=[2, 3, 4]),
+        Node(2, L, 0.0, 0.0, fixed_dofs=[0, 1, 2, 3, 4, 5]),    # fully fixed
+    ]
+    members = [Member(0, 0, 1, mat), Member(1, 1, 2, mat)]
+    loads = [Load(1, 1, -P)]
+    frame = FrameData("Fixed-fixed beam", nodes, members, loads)
+    delta = P * L**3 / (192 * E * I)
+    U = P**2 * L**3 / (384 * E * I)
+    return AnalyticalCase("Fixed-fixed beam", frame, 1, delta, U,
+                          "Roark's Formulas for Stress and Strain")
+
+
+def _cantilever_case() -> AnalyticalCase:
+    """Cantilever, end point load. delta = PL^3/3EI."""
+    E, I, A = 200e9, 1e-4, 0.01
+    L, P = 5.0, 20_000.0
+    mat = _beam_material(E, A, I)
+    nodes = [
+        Node(0, 0.0, 0.0, 0.0, fixed_dofs=[0, 1, 2, 3, 4, 5]),  # fully fixed
+        Node(1, L, 0.0, 0.0, fixed_dofs=[2, 3, 4]),
+    ]
+    members = [Member(0, 0, 1, mat)]
+    loads = [Load(1, 1, -P)]
+    frame = FrameData("Cantilever beam", nodes, members, loads)
+    delta = P * L**3 / (3 * E * I)
+    U = P**2 * L**3 / (6 * E * I)
+    return AnalyticalCase("Cantilever beam", frame, 1, delta, U,
+                          "Gere & Goodno, Mechanics of Materials")
+
+
+def run_analytical() -> List[dict]:
+    """Run the three analytical cases and return per-case error rows."""
+    cases = [_simply_supported_case(), _fixed_fixed_case(), _cantilever_case()]
+    rows = []
+    for case in cases:
+        u, energy_state = solve_full(case.frame, step=0)
+        delta_num = abs(u[case.probe_node * 6 + 1])  # vertical (uy) at probe
+        U_num = energy_state.total_energy
+        rows.append({
+            "case": case.name,
+            "delta_exact": case.delta_exact,
+            "delta_num": delta_num,
+            "delta_err_pct": _pct_err(delta_num, case.delta_exact),
+            "U_exact": case.U_exact,
+            "U_num": U_num,
+            "U_err_pct": _pct_err(U_num, case.U_exact),
+            "reference": case.reference,
+        })
+    return rows
+
+
+# ===========================================================================
+# Tier 2 - Independent dual solver cross-check
+# ===========================================================================
+
+def run_independent() -> List[dict]:
+    """Cross-check the production solver against the independent solver."""
+    rows = []
+    builders = [
+        frame_building_2d.build,
+        lambda: frame_building_2d.build(n_bays=3, n_stories=6),  # larger case study
+        frame_pratt_bridge.build,
+    ]
+    for builder in builders:
+        frame = builder()
+        u_prod, es = solve_full(frame, step=0)
+        disp_ind, U_ind = independent_solve(frame)
+
+        # Peak in-plane translation from each solver.
+        peak_prod = max(
+            math.hypot(u_prod[n.id * 6 + 0], u_prod[n.id * 6 + 1])
+            for n in frame.nodes
+        )
+        peak_ind = max(math.hypot(d[0], d[1]) for d in disp_ind.values())
+
+        rows.append({
+            "frame": frame.name,
+            "peak_disp_prod": peak_prod,
+            "peak_disp_ind": peak_ind,
+            "disp_err_pct": _pct_err(peak_prod, peak_ind),
+            "U_prod": es.total_energy,
+            "U_ind": U_ind,
+            "U_err_pct": _pct_err(es.total_energy, U_ind),
+        })
+    return rows
+
+
+# ===========================================================================
+# Tier 3 - Index validation (the quantities R_S actually depends on)
+# ===========================================================================
+# The displacement/energy tiers above verify the intact solver. These checks
+# verify the per-member distribution {p_i}, the post-removal ALP states, the
+# failure criterion, and the stability (mechanism) test - i.e. the inputs to
+# the Entropy Robustness Index, addressing the concern that "0% on intact
+# totals" does not by itself validate R_S.
+
+def _distribution(member_energy: Dict[int, float]) -> Dict[int, float]:
+    total = sum(member_energy.values())
+    if total <= 0:
+        return {k: 0.0 for k in member_energy}
+    return {k: v / total for k, v in member_energy.items()}
+
+
+def run_index_validation() -> List[dict]:
+    """Cross-checks of the distribution, ALP states, failure criterion, stability."""
+    import copy
+    from solver.equilibrium import solve
+    from solver.failure import _combined_stress
+    from solver.equilibrium import solve_full as _solve_full
+    from entropy.robustness import is_stable
+    from core.models import FrameData, Node, Member, Load
+    from structure.frames import frame_building_2d, frame_pratt_bridge
+
+    rows: List[dict] = []
+
+    # (a) Per-member distribution {p_i}: production vs independent solver.
+    for mod in (frame_building_2d, frame_pratt_bridge):
+        frame = mod.build()
+        prod = solve(frame, step=0)
+        p_prod = _distribution({ms.member_id: ms.strain_energy for ms in prod.member_states})
+        p_ind = _distribution(independent_member_energy(frame))
+        max_dp = max(abs(p_prod[k] - p_ind[k]) for k in p_prod)
+        rows.append({"check": f"per-member p_i  [{frame.name[:28]}]",
+                     "metric": "max |dp_i|", "value": f"{max_dp:.2e}",
+                     "pass": max_dp < 1e-6})
+
+    # (b) Post-removal ALP state: remove the critical member, re-solve both.
+    for mod in (frame_building_2d, frame_pratt_bridge):
+        frame = mod.build()
+        from entropy.robustness import analyze
+        crit = analyze(frame).critical_member
+        work = copy.deepcopy(frame)
+        next(m for m in work.members if m.id == crit).failed = True
+        u_prod, es = _solve_full(work, step=0)
+        _, U_ind = independent_solve(work)
+        err = _pct_err(es.total_energy, U_ind)
+        rows.append({"check": f"post-removal ALP (rm {crit}) [{frame.name[:18]}]",
+                     "metric": "U err %", "value": f"{err:.4f}",
+                     "pass": err < 1e-3})
+
+    # (c) Failure criterion by hand: cantilever, end transverse load P.
+    #     N = 0, M_max = P*L at the fixed end, sigma = M*c/I.
+    E, A, I, c = 200e9, 0.01, 1e-4, 0.1
+    L, P = 5.0, 20_000.0
+    mat = _beam_material(E, A, I)
+    f = FrameData("fail-check",
+                  [Node(0, 0.0, 0.0, 0.0, fixed_dofs=[0, 1, 2, 3, 4, 5]),
+                   Node(1, L, 0.0, 0.0, fixed_dofs=[2, 3, 4])],
+                  [Member(0, 0, 1, mat)], [Load(1, 1, -P)])
+    u, _ = _solve_full(f, step=0)
+    sigma_code = _combined_stress(f.members[0], u, f)
+    sigma_hand = (P * L) * c / I
+    err = _pct_err(sigma_code, sigma_hand)
+    rows.append({"check": "failure criterion (cantilever M*c/I)",
+                 "metric": "stress err %", "value": f"{err:.4f}",
+                 "pass": err < 1e-6})
+
+    # (d) Stability test: known mechanism vs known stable removal.
+    beam = frame_building_2d.build()
+    stable_after_beam = is_stable(_with_failed(beam, beam.members[-1].id))   # remove a beam
+    det_truss = frame_pratt_bridge.build(n_counter=0)                        # determinate
+    mech_after_truss = not is_stable(_with_failed(det_truss, 0))             # remove a chord
+    rows.append({"check": "stability: stable removal stays stable",
+                 "metric": "is_stable", "value": str(stable_after_beam),
+                 "pass": stable_after_beam})
+    rows.append({"check": "stability: determinate-truss removal = mechanism",
+                 "metric": "mechanism", "value": str(mech_after_truss),
+                 "pass": mech_after_truss})
+    return rows
+
+
+def _with_failed(frame, member_id):
+    import copy
+    work = copy.deepcopy(frame)
+    next(m for m in work.members if m.id == member_id).failed = True
+    return work
+
+
+# ===========================================================================
+# Reporting
+# ===========================================================================
+
+def _pct_err(num, ref) -> float:
+    if ref == 0:
+        return 0.0 if num == 0 else float("inf")
+    return abs(num - ref) / abs(ref) * 100.0
+
+
+def _write_report(analytical: List[dict], independent: List[dict],
+                  index_checks: List[dict], path: str) -> None:
+    lines = ["# Solver validation report", ""]
+    lines.append("## Tier 1 - Analytical (exact closed-form)")
+    lines.append("")
+    lines.append("| Case | delta_exact (m) | delta_num (m) | err % | U_exact (J) | U_num (J) | err % | Reference |")
+    lines.append("|---|---|---|---|---|---|---|---|")
+    for r in analytical:
+        lines.append(
+            f"| {r['case']} | {r['delta_exact']:.6e} | {r['delta_num']:.6e} | "
+            f"{r['delta_err_pct']:.4f} | {r['U_exact']:.6e} | {r['U_num']:.6e} | "
+            f"{r['U_err_pct']:.4f} | {r['reference']} |"
+        )
+    lines.append("")
+    lines.append("## Tier 2 - Independent dual solver cross-check")
+    lines.append("")
+    lines.append("| Frame | peak disp (production, m) | peak disp (independent, m) | err % | U production (J) | U independent (J) | err % |")
+    lines.append("|---|---|---|---|---|---|---|")
+    for r in independent:
+        lines.append(
+            f"| {r['frame']} | {r['peak_disp_prod']:.6e} | {r['peak_disp_ind']:.6e} | "
+            f"{r['disp_err_pct']:.4f} | {r['U_prod']:.6e} | {r['U_ind']:.6e} | "
+            f"{r['U_err_pct']:.4f} |"
+        )
+    lines.append("")
+    lines.append("## Tier 3 - Index validation (distribution, ALP, failure, stability)")
+    lines.append("")
+    lines.append("| Check | Metric | Value | Pass |")
+    lines.append("|---|---|---|---|")
+    for r in index_checks:
+        lines.append(f"| {r['check']} | {r['metric']} | {r['value']} | "
+                     f"{'yes' if r['pass'] else 'NO'} |")
+    lines.append("")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
+def _print_rows(analytical: List[dict], independent: List[dict]) -> None:
+    print("\n=== Tier 1: Analytical (exact) ===")
+    print(f"{'Case':<24}{'delta err %':>14}{'U err %':>12}")
+    for r in analytical:
+        print(f"{r['case']:<24}{r['delta_err_pct']:>14.4f}{r['U_err_pct']:>12.4f}")
+    print("\n=== Tier 2: Independent dual solver ===")
+    print(f"{'Frame':<40}{'disp err %':>12}{'U err %':>12}")
+    for r in independent:
+        print(f"{r['frame']:<40}{r['disp_err_pct']:>12.4f}{r['U_err_pct']:>12.4f}")
+
+
+def _print_index(index_checks: List[dict]) -> None:
+    print("\n=== Tier 3: Index validation (distribution / ALP / failure / stability) ===")
+    for r in index_checks:
+        flag = "PASS" if r["pass"] else "FAIL"
+        print(f"  [{flag}] {r['check']:<46} {r['metric']}={r['value']}")
+
+
+def _save_figures(analytical: List[dict], independent: List[dict], out_dir: str) -> None:
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:  # pragma: no cover
+        print(f"(matplotlib unavailable, skipping figures: {exc})")
+        return
+
+    os.makedirs(out_dir, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    labels = [r["case"] for r in analytical] + [r["frame"] for r in independent]
+    errs = [r["delta_err_pct"] for r in analytical] + [r["disp_err_pct"] for r in independent]
+    colors = ["steelblue"] * len(analytical) + ["firebrick"] * len(independent)
+    ax.bar(range(len(labels)), errs, color=colors)
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels(labels, rotation=30, ha="right", fontsize=8)
+    ax.set_ylabel("Displacement error (%)")
+    ax.set_title("Solver validation: analytical (blue) and independent solver (red)")
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "validation_errors.png"), dpi=150)
+    plt.close(fig)
+    print(f"Saved figure: {os.path.join(out_dir, 'validation_errors.png')}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Solver validation harness")
+    parser.add_argument("--figures", action="store_true",
+                        help="Save comparison figures to output_figures/")
+    args = parser.parse_args()
+
+    analytical = run_analytical()
+    independent = run_independent()
+    index_checks = run_index_validation()
+
+    _print_rows(analytical, independent)
+    _print_index(index_checks)
+    report_path = os.path.join("validation", "validation_report.md")
+    _write_report(analytical, independent, index_checks, report_path)
+    print(f"\nWrote {report_path}")
+
+    if args.figures:
+        _save_figures(analytical, independent, "output_figures")
+
+
+if __name__ == "__main__":
     main()
