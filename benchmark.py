@@ -17,7 +17,7 @@ code with structure/ or solver/:
            are compared against the production solver.
 
 Note on external benchmarks: the Ziemian & Ziemian steel benchmark frames
-(Data in Brief, https://doi.org/10.1016/j.dib.2021.107510;
+(Data in Brief, https://doi.org/10.1016/j.dib.2021.107564;
 data: https://doi.org/10.17632/39sjhchwtx.1) are a recognized external
 reference. Their verified results are SECOND-ORDER (P-Delta / stability),
 which this first-order linear solver does not model; they are cited as a

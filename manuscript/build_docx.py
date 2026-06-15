@@ -262,15 +262,15 @@ def build():
         "not new, and it has been expressed in information-theoretic terms "
         "before. The redundancy matrix describes how static indeterminacy is "
         "spread across members and argues that robust structures distribute "
-        "redundancy homogeneously (Linkwitz, 1961; von Scheven et al., 2021); "
+        "redundancy homogeneously (von Scheven et al., 2021); "
         "like R_S it is load-independent and threshold-free. Nafday (2011) casts "
         "structural integrity in information-theoretic terms, and event-oriented "
         "system analysis defines redundancy directly as the Shannon entropy of "
-        "operational modes (Cizmar and Sykora, 2011). In network science the "
+        "operational modes (Ziha, 2000). In network science the "
         "Shannon entropy of a load-flow distribution is an established measure of "
-        "fragility to cascading failure (Koc et al., 2014). System-reserve "
+        "fragility to cascading failure (Koc et al., 2013). System-reserve "
         "redundancy and robustness indices for structures are well developed "
-        "(Frangopol and Curley, 1987; Ghosn and Frangopol, 2010), from which "
+        "(Frangopol and Curley, 1987; Ghosn et al., 2010), from which "
         "R_S differs by measuring the entropy of the elastic strain-energy "
         "distribution rather than a reserve- or reliability-capacity ratio. "
         "Strain-energy member-importance coefficients are also standard "
@@ -359,7 +359,7 @@ def build():
         "The third tier checks the quantities R_S actually depends on: the "
         "per-member distribution, the post-removal ALP states, the failure "
         "criterion, and the stability test all agree with independent "
-        "calculations. The Ziemian and McGuire (2021) steel benchmark frames "
+        "calculations. The Ziemian and Ziemian (2021) steel benchmark frames "
         "are a useful external reference, but their published results are "
         "second-order (P-Delta) and sit outside what a first-order solver can "
         "reproduce, so I cite them for future checks rather than match them here.")
@@ -557,37 +557,41 @@ def build():
 
 
 REFERENCES = [
-    "Cizmar, J., & Sykora, M. (2011). Redundancy and robustness of systems of "
-    "events. Structural Safety / Probabilistic Engineering Mechanics.",
     "Department of Defense. (2016). Unified Facilities Criteria UFC 4-023-03: "
     "Design of Buildings to Resist Progressive Collapse.",
     "Feng, D.-C., et al. (2024). Physically-based collapse failure criteria in "
-    "progressive collapse analyses of multi-story RC structures subjected to "
-    "column removal scenarios. Engineering Structures. "
+    "progressive collapse analyses of random-parameter multi-story RC structures "
+    "subjected to column removal scenarios. Engineering Structures. "
     "https://doi.org/10.1016/j.engstruct.2024.119412",
     "Frangopol, D. M., & Curley, J. P. (1987). Effects of damage and redundancy "
     "on structural reliability. Journal of Structural Engineering, 113(7), "
     "1533-1549.",
-    "Ghosn, M., & Frangopol, D. M. (2010). Structural redundancy and robustness "
-    "measures and their use in assessment and design. In Structures Congress.",
     "General Services Administration. (2003). Progressive Collapse Analysis and "
     "Design Guidelines for New Federal Office Buildings and Major Modernization "
     "Projects.",
-    "Koc, Y., Warnier, M., Van Mieghem, P., Kooij, R., & Brazier, F. (2014). "
-    "An entropy-based metric to quantify the robustness of power grids against "
+    "Ghosn, M., Moses, F., & Frangopol, D. M. (2010). Redundancy and robustness "
+    "of highway bridge superstructures and substructures. Structure and "
+    "Infrastructure Engineering, 6(1-2), 257-278.",
+    "Koc, Y., Warnier, M., Kooij, R. E., & Brazier, F. M. (2013). An "
+    "entropy-based metric to quantify the robustness of power grids against "
     "cascading failures. Safety Science, 59, 126-134.",
-    "Lin, K., et al. (2019). Member importance evaluation based on elastic-plastic "
-    "strain energy. Advances in Civil Engineering, 2019, 8019675.",
+    "Lin, K., et al. (2019). Importance assessment of structural members based "
+    "on elastic-plastic strain energy. Advances in Materials Science and "
+    "Engineering, 2019, 8019675.",
     "Nafday, A. M. (2011). Consequence-based structural design approach for black "
     "swan events. Structural Safety, 33(1), 108-114.",
     "Shannon, C. E. (1948). A mathematical theory of communication. Bell System "
     "Technical Journal, 27, 379-423.",
     "von Scheven, M., Ramm, E., & Bischoff, M. (2021). Quantification of the "
     "redundancy distribution in truss and beam structures. International Journal "
-    "of Solids and Structures, 213, 41-49.",
-    "Ziemian, R. D., & McGuire, W. (2021). Steel benchmark frames for structural "
-    "analysis and validation studies. Data in Brief, 39, 107510. "
-    "https://doi.org/10.1016/j.dib.2021.107510",
+    "of Solids and Structures, 213, 41-49. "
+    "https://doi.org/10.1016/j.ijsolstr.2020.11.002",
+    "Ziemian, C. W., & Ziemian, R. D. (2021). Steel benchmark frames for "
+    "structural analysis and validation studies: Finite element models and "
+    "numerical simulation data. Data in Brief, 39, 107564. "
+    "https://doi.org/10.1016/j.dib.2021.107564",
+    "Ziha, K. (2000). Redundancy and robustness of systems of events. "
+    "Probabilistic Engineering Mechanics, 15(4), 347-357.",
 ]
 
 

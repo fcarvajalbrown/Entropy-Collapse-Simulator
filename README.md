@@ -239,7 +239,7 @@ studies (importance correlation, redundancy sweep, step-size sensitivity).
 - GSA (2003). *Progressive Collapse Analysis and Design Guidelines for New Federal Office Buildings.*
 - DoD (2016). *UFC 4-023-03: Design of Buildings to Resist Progressive Collapse.*
 - D. Feng et al. (2024). *Physically-based collapse failure criteria in progressive collapse analyses of multi-story RC structures under column removal.* Engineering Structures. https://doi.org/10.1016/j.engstruct.2024.119412
-- R. D. Ziemian, W. McGuire (2021). *Steel benchmark frames for structural analysis and validation studies.* Data in Brief, 39, 107510. https://doi.org/10.1016/j.dib.2021.107510
+- C. W. Ziemian, R. D. Ziemian (2021). *Steel benchmark frames for structural analysis and validation studies.* Data in Brief, 39, 107564. https://doi.org/10.1016/j.dib.2021.107564
 
 See [`THEORY.md`](THEORY.md) for the complete derivation and limitations.
 

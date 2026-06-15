@@ -329,8 +329,8 @@ this index and has been stated in information-theoretic terms before: the
 redundancy matrix and its homogeneous-redundancy criterion (von Scheven et al.,
 2021), Nafday's (2011) information-theoretic structural integrity, the
 event-oriented definition of redundancy as the entropy of operational modes
-(Cizmar and Sykora, 2011), and the entropy of load-flow distributions in
-power-grid cascade analysis (Koc et al., 2014). Strain-energy member-importance
+(Ziha, 2000), and the entropy of load-flow distributions in
+power-grid cascade analysis (Koc et al., 2013). Strain-energy member-importance
 coefficients are also established (Lin, 2019). `R_S` is a specific recombination
 of these ideas: the entropy of the member-level elastic strain-energy
 distribution, under code-style single-member removal, on planar frames. Its
@@ -345,17 +345,22 @@ compliance-based importance (the two can anti-correlate), shown in
   Technical Journal, 27, 379-423.
 - A. M. Nafday (2011). *Consequence-based structural design approach for black
   swan events.* Structural Safety, 33(1), 108-114.
-- J. Cizmar, M. Sykora (2011). *Redundancy and robustness of systems of events.*
-- Y. Koc et al. (2014). *An entropy-based metric to quantify the robustness of
-  power grids against cascading failures.* Safety Science, 59, 126-134.
+- K. Ziha (2000). *Redundancy and robustness of systems of events.*
+  Probabilistic Engineering Mechanics, 15(4), 347-357.
+- Y. Koc, M. Warnier, R. E. Kooij, F. M. Brazier (2013). *An entropy-based
+  metric to quantify the robustness of power grids against cascading failures.*
+  Safety Science, 59, 126-134.
 - M. von Scheven, E. Ramm, M. Bischoff (2021). *Quantification of the redundancy
   distribution in truss and beam structures.* Int. J. Solids Struct., 213, 41-49.
-- K. Lin et al. (2019). *Member importance evaluation based on elastic-plastic
-  strain energy.* Advances in Civil Engineering, 2019, 8019675.
+  https://doi.org/10.1016/j.ijsolstr.2020.11.002
+- K. Lin et al. (2019). *Importance assessment of structural members based on
+  elastic-plastic strain energy.* Advances in Materials Science and Engineering,
+  2019, 8019675.
 - D. M. Frangopol, J. P. Curley (1987). *Effects of damage and redundancy on
   structural reliability.* Journal of Structural Engineering, 113(7), 1533-1549.
-- M. Ghosn, D. M. Frangopol (2010). *Structural redundancy and robustness
-  measures and their use in assessment and design.*
+- M. Ghosn, F. Moses, D. M. Frangopol (2010). *Redundancy and robustness of
+  highway bridge superstructures and substructures.* Structure and
+  Infrastructure Engineering, 6(1-2), 257-278.
 - General Services Administration (2003). *Progressive Collapse Analysis and
   Design Guidelines for New Federal Office Buildings and Major Modernization
   Projects.*
@@ -365,9 +370,10 @@ compliance-based importance (the two can anti-correlate), shown in
   progressive collapse analyses of random-parameter multi-story RC structures
   subjected to column removal scenarios.* Engineering Structures.
   https://doi.org/10.1016/j.engstruct.2024.119412
-- R. D. Ziemian, W. McGuire (2021). *Steel benchmark frames for structural
-  analysis and validation studies.* Data in Brief, 39, 107510.
-  https://doi.org/10.1016/j.dib.2021.107510
+- C. W. Ziemian, R. D. Ziemian (2021). *Steel benchmark frames for structural
+  analysis and validation studies: Finite element models and numerical
+  simulation data.* Data in Brief, 39, 107564.
+  https://doi.org/10.1016/j.dib.2021.107564
 - A. Moreno-Gomez et al. (2018). *EMD-Shannon entropy-based methodology to
   detect incipient damages in a truss structure.* Applied Sciences, 8(11), 2068.
 - T.-K. Lin, A. G. Lainez (2018). *Entropy-based structural health monitoring
