@@ -1,0 +1,47 @@
+Dear Editor-in-Chief,
+
+I am pleased to submit my manuscript, "An Entropy Robustness Index for Planar
+Steel Frames: Formulation, Verified Implementation, and Comparison with Standard
+Collapse Criteria," for consideration as a full original article in the Latin
+American Journal of Solids and Structures.
+
+The paper introduces the Entropy Robustness Index R_S, a bounded, dimensionless,
+calibration-free measure of structural robustness obtained from the Shannon
+entropy of the elastic strain-energy distribution evaluated under the
+alternate-load-path (notional member-removal) procedure. Unlike the displacement,
+demand-capacity-ratio, and energy criteria, each of which requires a limit
+calibrated to the structure at hand, R_S needs no tuned threshold. The work
+contributes (i) the index and a provable determinacy bound (R_S = 0 for a
+statically determinate structure), (ii) evidence that R_S rises monotonically
+with the degree of static indeterminacy and that its member-criticality ranking
+is not a re-encoding of compliance-based importance, and (iii) a four-criteria
+comparison on a single incremental analysis. All results run on a first-order
+linear-elastic planar Euler-Bernoulli frame and truss solver verified to
+floating-point precision against closed-form solutions and an independent solver.
+The topic sits squarely within the journal's scope in computational solid and
+structural mechanics.
+
+I confirm that this manuscript is original, has not been published previously, and
+is not under consideration by any other journal. As the sole author, I agree with
+the contents and the stated authorship. The source code, scenarios, and scripts
+that reproduce every reported number and figure are openly available under
+GPL-3.0-or-later at https://github.com/fcarvajalbrown/Entropy-Collapse-Simulator.
+
+To assist the review process, I suggest the following three potential reviewers,
+to be used at the Editors' discretion. None is a co-author, collaborator, or
+affiliated with my institution, and none appears in the reference list:
+
+1. Andre, Beck, atbeck@sc.usp.br, University of Sao Paulo (Sao Carlos),
+   Structural reliability, Progressive collapse, Risk-and-robustness optimization
+2. Feng, Fu, f.fu@city.ac.uk, City St George's University of London,
+   Progressive collapse, Structural robustness, Steel-frame analysis
+3. Ricardo Antonio, Herrera Mardones, rmh4@uchile.cl, Universidad de Chile,
+   Steel structures, Seismic design of steel frames, Experimental structural behavior
+
+Thank you for considering my submission.
+
+Sincerely,
+Felipe Carvajal Brown
+Instituto Virginio Gomez, Concepcion, Chile
+fcarvajalbrown@gmail.com
+ORCID: 0000-0002-8300-7587
