@@ -16,3 +16,8 @@ venv/
 # Scratch outputs from main.py --save / benchmark.py --figures
 # (the manuscript's own figures live in manuscript/figures/)
 /output_figures/
+
+# Personal submission artifacts: contain the author's national ID (RUT) and
+# signature. Kept local on purpose; never commit to this public repo.
+/manuscript/IngInv/IngInv_License_Agreement_SIGNED.pdf
+/manuscript/IngInv/fill_license.py

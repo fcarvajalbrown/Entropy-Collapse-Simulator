@@ -1,69 +1,59 @@
-# -*- coding: utf-8 -*-
 """
-manuscript/build_docx_ingeinv.py
-================================
-Render the manuscript for the journal Ingenieria e Investigacion (Universidad
-Nacional de Colombia) by reusing its official template found under templates/
-("Template (1)-OTH (1)-OTH.docx"). The template is opened as the base document
-so that all of its named paragraph styles (English Title, Spanish Title, Author,
-"Abstract and keyword titles", "Abstract and keywords content", Dates, Chapter
-Title, Chapter Subtitle, Content, "Tables and figures Titles", References) and
-its page geometry are available; the placeholder body is then cleared and
-refilled with our content.
+manuscript/build_docx_acm.py
+============================
+Render the manuscript for the journal Applied and Computational Mechanics (ACM),
+University of West Bohemia, Plzen, by reusing the official "acmtempl.docx"
+template found under templates/. The template is opened as the base document so
+that all of its named paragraph styles (Title, Heading 1, Heading 2, Text,
+Equation, "Caption (Fig.;Table)", "footnote text", Normal) and its page
+geometry (A4, margins L/R 2.5 cm, top 3.1 cm, bottom 2.5 cm) are available; the
+demonstration body is then cleared and refilled with our content.
 
 Every reported number is COMPUTED at build time from the analysis modules and
 the validation harness (it reuses compute_results() from build_docx.py), so the
-manuscript cannot drift out of sync with the code or with the RDLC copy.
+ACM manuscript cannot drift out of sync with the code or with the RDLC copy.
 
-Ingenieria e Investigacion house rules honoured here:
-  - Bilingual front matter: English title + Spanish title, ABSTRACT + RESUMEN,
-    Keywords + Palabras clave. Body in English (the journal's current standard).
-  - In-text citation style is numeric [n]; IEEE-style numbered reference list,
-    in order of first appearance.
-  - CRediT author-contributions statement, Conflicts of interest, and a Data
-    availability statement.
-  - Figures and tables carry a "Source" note.
-
-NOTE: the Spanish front matter (titulo, resumen, palabras clave) is a draft
-translation provided for the author's review; it is the only non-ASCII content
-in the project and is required for this journal.
+ACM house rules honoured here:
+  - English only; Times New Roman 12 pt body (inherited from the template).
+  - Abstract concise (<= 15 lines), no references inside it; <= 6 keywords.
+  - Numbered, sentence-case section headings (Heading 1 / Heading 2).
+  - In-text citation style is numeric [n]; Elsevier-style numbered reference
+    list, in order of first appearance.
+  - Corresponding-author contact (telephone + e-mail) rendered as a footnote.
+  - Min 8 pages and an EVEN page count are submission requirements: check and
+    pad the final PDF after conversion (cannot be enforced from python-docx).
 
     python manuscript/generate_figures.py        # produce figures first
-    python manuscript/build_docx_ingeinv.py       # -> manuscript/out/Carvajal_IngInv_manuscript.docx
+    python manuscript/ACM/build_docx_acm.py       # -> manuscript/ACM/Carvajal_ACM_manuscript.docx
 """
 
 import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, ".."))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, HERE)
+MANU = os.path.abspath(os.path.join(HERE, ".."))   # manuscript/ (shared results.py + figures/)
+sys.path.insert(0, MANU)
 
 from docx import Document
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
-from build_docx import compute_results  # reuse the single source of computed numbers
+from results import compute_results  # single source of computed numbers
 
-TEMPLATE = os.path.join(ROOT, "templates", "Template (1)-OTH (1)-OTH.docx")
-FIG = os.path.join(HERE, "figures")
-OUTDIR = os.path.join(HERE, "out")
-OUT = os.path.join(OUTDIR, "Carvajal_IngInv_manuscript.docx")
+TEMPLATE = os.path.join(HERE, "acmtempl.docx")
+FIG = os.path.join(MANU, "figures")
+OUT = os.path.join(HERE, "Carvajal_ACM_manuscript.docx")
 
-TITLE_STYLE = "English Title"
-STITLE_STYLE = "Spanish Title"
-AUTHOR_STYLE = "Author"
-ABS_TITLE = "Abstract and keyword titles"
-ABS_BODY = "Abstract and keywords content"
-DATES = "Dates"
-CHAP = "Chapter Title"
-SUBCHAP = "Chapter Subtitle"
-BODY = "Content"
-CAP = "Tables and figures Titles"
-REF = "References"
-SOURCE = "Source: prepared by the author."
+# Corresponding-author contact. The phone number is supplied by the author;
+# never fabricated. Replace the placeholder before submission.
+EMAIL = "fcarvajalbrown@gmail.com"
+PHONE = "+56 9 3236 4993"
+
+ABSTRACT_MAX_CHARS = 1400  # ~15 lines of Times New Roman 12 on the A4 text width
+
+BODY = "Text"      # ACM body-text paragraph style
+CAP = "Caption (Fig.;Table)"
 
 
 # --------------------------------------------------------------------------
@@ -96,7 +86,6 @@ def figure(doc, path, cap):
     else:
         p.add_run(f"[missing figure: {os.path.basename(path)}]")
     P(doc, cap, CAP).alignment = WD_ALIGN_PARAGRAPH.CENTER
-    P(doc, SOURCE, BODY)
 
 
 def table(doc, title_text, headers, rows):
@@ -109,17 +98,18 @@ def table(doc, title_text, headers, rows):
         cell.paragraphs[0].clear()
         r = cell.paragraphs[0].add_run(h)
         r.bold = True
-        r.font.size = Pt(9)
+        r.font.size = Pt(10)
     for row in rows:
         cells = t.add_row().cells
         for j, val in enumerate(row):
             cells[j].paragraphs[0].clear()
-            cells[j].paragraphs[0].add_run(str(val)).font.size = Pt(9)
-    P(doc, SOURCE, BODY)
+            cells[j].paragraphs[0].add_run(str(val)).font.size = Pt(10)
+    doc.add_paragraph()
 
 
 def equation(doc, text, number):
-    p = doc.add_paragraph()
+    """Centered equation with a trailing number, in the template Equation style."""
+    p = P(doc, "", "Equation")
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.add_run(text + "\t(" + str(number) + ")")
     return p
@@ -141,24 +131,20 @@ def build():
     rho_t = f"{R['imp_truss'].spearman_rho:+.2f}"
 
     if not os.path.exists(TEMPLATE):
-        raise SystemExit(f"Ingenieria e Investigacion template not found at {TEMPLATE}")
+        raise SystemExit(f"ACM template not found at {TEMPLATE}")
     doc = Document(TEMPLATE)
     clear_body(doc)
 
-    # ---- Bilingual title block ----
-    P(doc, "An Entropy Robustness Index for Planar Steel Frames: Formulation, "
-           "Verified Implementation, and Comparison with Standard Collapse Criteria",
-      TITLE_STYLE)
-    P(doc, "Un índice de robustez por entropía para marcos planos de acero: "
-           "formulación, implementación verificada y comparación con criterios de "
-           "colapso estándar", STITLE_STYLE)
-    P(doc, "Felipe Carvajal Brown 1", AUTHOR_STYLE)
-    P(doc, "1 Instituto Virginio Gomez, Concepcion, Chile. "
-           "Email: fcarvajalbrown@gmail.com", BODY)
+    # ---- Title block (sentence-case title per ACM rules) ----
+    P(doc, "An entropy robustness index for planar steel frames: formulation, "
+           "verified implementation, and comparison with standard collapse criteria",
+      "Title")
+    P(doc, "F. Carvajal Brown a,*", "Normal")
+    P(doc, "a Instituto Virginio Gomez, Concepcion, Chile", "Normal")
 
-    # ---- Abstract (English) ----
-    P(doc, "ABSTRACT", ABS_TITLE)
-    P(doc,
+    # ---- Abstract / keywords ----
+    P(doc, "Abstract", "Normal").runs[0].bold = True
+    abstract = (
         "Structural robustness rarely reduces to a single number. Engineers judge "
         "it with displacement, resistance, or energy criteria, and each needs a "
         "limit calibrated to the structure at hand. This paper proposes the "
@@ -174,38 +160,19 @@ def build():
         "indeterminacy, and its member ranking is not a re-encoding of compliance "
         "importance. On one incremental analysis the entropy criterion reaches the "
         "collapse onset at the same load as the resistance and energy criteria, "
-        "with no calibrated threshold.", ABS_BODY)
+        "with no calibrated threshold."
+    )
+    n = len(abstract)
+    if n > ABSTRACT_MAX_CHARS:
+        raise SystemExit(f"Abstract is {n} chars > ACM target {ABSTRACT_MAX_CHARS} "
+                         f"(keep it under ~15 lines).")
+    print(f"Abstract length: {n} / {ABSTRACT_MAX_CHARS} chars (target <= 15 lines)")
+    P(doc, abstract, "No Spacing")
     P(doc, "Keywords: structural robustness, progressive collapse, alternate load "
            "path, Shannon entropy, redundancy", "Normal")
 
-    # ---- Resumen (Spanish, draft translation for author review) ----
-    P(doc, "RESUMEN", ABS_TITLE)
-    P(doc,
-        "La robustez estructural rara vez se reduce a un solo número. Los "
-        "ingenieros la evalúan con criterios de desplazamiento, resistencia o "
-        "energía, y cada uno requiere un límite calibrado para la estructura "
-        "particular. Este artículo propone el Índice de Robustez por Entropía "
-        "R_S, la entropía de Shannon de la distribución de energía de deformación "
-        "elástica promediada sobre las remociones nocionales de miembros del "
-        "método de la trayectoria de carga alternativa. R_S se acerca a 1 cuando "
-        "un marco sigue repartiendo la energía de manera uniforme tras cualquier "
-        "pérdida individual, y cae hacia 0 cuando una pérdida localiza la energía "
-        "o forma un mecanismo. Implementado en un solucionador plano de "
-        "Euler-Bernoulli lineal-elástico de primer orden verificado a precisión de "
-        f"punto flotante, R_S vale {rs_beam}, {rs_frame} y {rs_truss} para una "
-        "viga no redundante, un marco de momento redundante y una armadura "
-        "redundante. Crece monótonamente con el grado de indeterminación estática, "
-        "y su ordenamiento de miembros no es una recodificación de la importancia "
-        "por flexibilidad. En un único análisis incremental el criterio de "
-        "entropía alcanza el inicio del colapso a la misma carga que los criterios "
-        "de resistencia y energía, sin umbral calibrado.", ABS_BODY)
-    P(doc, "Palabras clave: robustez estructural, colapso progresivo, trayectoria "
-           "de carga alternativa, entropía de Shannon, redundancia", "Normal")
-
-    P(doc, "Received: ____; Accepted: ____", DATES)
-
-    # ---- Introduction ----
-    P(doc, "Introduction", CHAP)
+    # ---- 1 Introduction ----
+    P(doc, "1\tIntroduction", "Heading 1")
     P(doc, "Progressive collapse is the spread of local damage into a failure out "
         "of proportion to what caused it. Guidance against it, from the GSA "
         "guidelines [1] to Unified Facilities Criteria UFC 4-023-03 [2], is built "
@@ -248,9 +215,9 @@ def build():
         "seen here is read as a marker of localization rather than a forecast of "
         "it.", BODY)
 
-    # ---- Materials and Methods ----
-    P(doc, "Materials and Methods", CHAP)
-    P(doc, "Strain-energy entropy", SUBCHAP)
+    # ---- 2 Materials and methods ----
+    P(doc, "2\tMaterials and methods", "Heading 1")
+    P(doc, "2.1\tStrain-energy entropy", "Heading 2")
     P(doc, "At a given load, let U_i be the elastic strain energy in active member "
         "i, with N active members in all. Equation (1) gives the normalized energy "
         "distribution and its Shannon entropy [11].", BODY)
@@ -260,7 +227,7 @@ def build():
         "the load is scaled on a fixed topology. They shift only when the load path "
         "itself changes.", BODY)
 
-    P(doc, "Alternate load path and the robustness index", SUBCHAP)
+    P(doc, "2.2\tAlternate load path and the robustness index", "Heading 2")
     P(doc, "For a linear-elastic frame the redistribution after a member is lost "
         "follows exactly from dropping that member from the stiffness assembly and "
         "solving Ku = F again; no separate redistribution rule is needed. If the "
@@ -280,7 +247,7 @@ def build():
         "forms a mechanism, so R_S > 0 requires at least one degree of static "
         "indeterminacy (proof in the accompanying theory note).", BODY)
 
-    P(doc, "Four criteria for comparison", SUBCHAP)
+    P(doc, "2.3\tFour criteria for comparison", "Heading 2")
     P(doc, "The four criteria are read off one incremental analysis. Load is scaled "
         "up, over-stressed members drop out, and at every step four quantities are "
         "recorded; each criterion fires the first time its quantity crosses. "
@@ -293,7 +260,7 @@ def build():
         "The first three need a threshold chosen for the structure. The entropy "
         "test does not.", BODY)
 
-    P(doc, "Implementation and verification", SUBCHAP)
+    P(doc, "2.4\tImplementation and verification", "Heading 2")
     P(doc, "The tool is written in Python, with modules that talk to each other "
         "only through shared data classes. The frame element is a planar "
         "Euler-Bernoulli element with axial and in-plane bending stiffness; truss "
@@ -329,9 +296,9 @@ def build():
                "benchmark.py).",
           ["Tier", "Case", "Displacement err", "Strain-energy err"], ver_rows)
 
-    # ---- Results and Analysis ----
-    P(doc, "Results and Analysis", CHAP)
-    P(doc, "Robustness index", SUBCHAP)
+    # ---- 3 Results and analysis ----
+    P(doc, "3\tResults and analysis", "Heading 1")
+    P(doc, "3.1\tRobustness index", "Heading 2")
     P(doc, "Three frames are analysed: a two-span beam with no redundancy, a 2-bay "
         "3-story steel moment frame, and a 6-panel X-braced truss bridge. Table 2 "
         "collects the index for each.", BODY)
@@ -357,10 +324,10 @@ def build():
         f"same way (R_S = {f2(R['large'].robustness_index)}), so the index is not "
         "an artefact of small models.", BODY)
     figure(doc, os.path.join(FIG, "fig_robustness_ranking.png"),
-           "Figure 1. Entropy-based member criticality (entropy drop dH_k) for the "
+           "Fig. 1. Entropy-based member criticality (entropy drop dH_k) for the "
            "moment frame and the truss bridge.")
 
-    P(doc, "R_S tracks redundancy", SUBCHAP)
+    P(doc, "3.2\tR_S tracks redundancy", "Heading 2")
     sweep = R["sweep"]
     P(doc, "To test whether R_S measures redundancy rather than merely re-packaging "
         "stiffness, I sweep the truss bridge from its statically determinate "
@@ -369,7 +336,7 @@ def build():
         "known exactly. R_S rises monotonically from "
         f"{f2(sweep[0].robustness_index)} at zero redundancy to "
         f"{f2(sweep[-1].robustness_index)} at six, while the fraction of "
-        "single-loss mechanisms falls from 100% to 0% (Figure 2, Table 3). The "
+        "single-loss mechanisms falls from 100% to 0% (Fig. 2, Table 3). The "
         "determinate case gives exactly R_S = 0, as the determinacy bound "
         "requires.", BODY)
     table(doc, "Table 3. R_S versus degree of static indeterminacy (DSI) for the "
@@ -378,23 +345,23 @@ def build():
           [[str(p.dsi), str(p.n_members), f3(p.robustness_index),
             f"{p.mechanism_fraction:.0%}"] for p in sweep])
     figure(doc, os.path.join(FIG, "fig_redundancy_sweep.png"),
-           "Figure 2. R_S rises and the single-loss mechanism fraction falls as the "
+           "Fig. 2. R_S rises and the single-loss mechanism fraction falls as the "
            "truss gains redundancy.")
 
-    P(doc, "The ranking is not compliance importance", SUBCHAP)
+    P(doc, "3.3\tThe ranking is not compliance importance", "Heading 2")
     P(doc, "A natural objection is that dH_k just restates the compliance increase "
         "caused by removing a member. The two are related but not the same. "
         "Comparing the entropy drop with the removal-based compliance importance "
         f"I_k = dU/U_0 gives a Spearman rank correlation of {rho_f} for the moment "
-        f"frame and {rho_t} for the truss (Figure 3). The correlation is "
+        f"frame and {rho_t} for the truss (Fig. 3). The correlation is "
         "frame-dependent and well below one; for the moment frame the two rankings "
         "are uncorrelated to weakly negative, so the member whose loss most softens "
         "the structure need not be the one whose loss most localizes the energy. I "
         "do not claim statistical significance at this sample size; the point is "
         "that dH_k is not a monotone re-encoding of compliance importance.", BODY)
     figure(doc, os.path.join(FIG, "fig_importance_scatter.png"),
-           "Figure 3. Entropy criticality dH_k against compliance importance I_k; "
-           "the two rankings differ (Spearman in titles).")
+           "Fig. 3. Entropy criticality dH_k against compliance importance I_k; the "
+           "two rankings differ (Spearman in titles).")
     ens = R["ensemble"]
     rhos = [e.spearman_rho for e in ens]
     n_neg = sum(1 for r in rhos if r < 0)
@@ -404,27 +371,27 @@ def build():
         "and redundant trusses). The rank correlation ranges from "
         f"{min(rhos):+.2f} to {max(rhos):+.2f} with mean "
         f"{sum(rhos)/len(rhos):+.2f}, and is negative for {n_neg} of the "
-        f"{len(ens)} frames (Figure 4). The sign is systematic rather than random: "
+        f"{len(ens)} frames (Fig. 4). The sign is systematic rather than random: "
         "every multi-bay moment frame gives a negative correlation, while small "
         "frames and trusses give positive ones. The entropy criticality is "
         "therefore consistently far from a monotone re-encoding of compliance "
         "importance, and for a whole class of structures it ranks members in "
         "essentially the opposite order.", BODY)
     figure(doc, os.path.join(FIG, "fig_importance_ensemble.png"),
-           "Figure 4. Spearman correlation between entropy criticality and "
-           "compliance importance across the frame ensemble; it stays well below 1 "
-           "and is negative for the multi-bay moment frames.")
+           "Fig. 4. Spearman correlation between entropy criticality and compliance "
+           "importance across the frame ensemble; it stays well below 1 and is "
+           "negative for the multi-bay moment frames.")
 
-    P(doc, "Progressive collapse and criteria comparison", SUBCHAP)
+    P(doc, "3.4\tProgressive collapse and criteria comparison", "Heading 2")
     tr = R["triggers"]
     P(doc, "Loading the truss bridge step by step to failure shows the entropy "
         "behaving as expected. While the truss is intact the entropy holds flat, "
         "since it ignores load magnitude; at the first member failure it drops as "
         "the energy crowds into fewer members, then recovers part of the way as the "
-        "remaining bars take up the load (Figure 5). Table 4 lists the load factor "
-        "at which each criterion first fires.", BODY)
+        "remaining bars take up the load (Fig. 5). Table 4 lists the load factor at "
+        "which each criterion first fires.", BODY)
     figure(doc, os.path.join(FIG, "fig_entropy_trajectory.png"),
-           "Figure 5. Normalized entropy and compliance versus load step for the "
+           "Fig. 5. Normalized entropy and compliance versus load step for the "
            "truss bridge; both are flat until the first member failure, then "
            "respond together.")
     table(doc, "Table 4. First-trigger load factor of the four criteria (truss "
@@ -435,8 +402,8 @@ def build():
            ["Energy (compliance)", f2(tr["energy"]), "yes (energy multiple)"],
            ["Entropy", f2(tr["entropy"]), "no"]])
     figure(doc, os.path.join(FIG, "fig_criteria_comparison.png"),
-           "Figure 6. First-trigger load factor for the four criteria; grey bars "
-           "need a calibrated threshold, the entropy bar does not.")
+           "Fig. 6. First-trigger load factor for the four criteria; grey bars need "
+           "a calibrated threshold, the entropy bar does not.")
     P(doc, "The displacement criterion trips first and where it trips is set by the "
         "drift limit, a known soft spot of displacement-based checks. The other "
         f"three agree near load factor {f2(tr['dcr'])} to {f2(tr['energy'])}. DCR "
@@ -450,7 +417,7 @@ def build():
         "conclusion as DCR and energy without a calibrated threshold, not that it "
         "sees collapse sooner.", BODY)
 
-    P(doc, "Limitations", SUBCHAP)
+    P(doc, "3.5\tLimitations", "Heading 2")
     P(doc, "The limits should be read plainly. Entropy of strain energy is old, so "
         "the new part is the robustness formulation and the evidence that it tracks "
         "redundancy, departs from compliance importance, and is calibration-free. "
@@ -463,8 +430,8 @@ def build():
         "localization rather than ahead of it, so the claim is a calibration-free "
         "measure of robustness and localization, not lead time.", BODY)
 
-    # ---- Conclusions ----
-    P(doc, "Conclusions", CHAP)
+    # ---- 4 Conclusions ----
+    P(doc, "4\tConclusions", "Heading 1")
     P(doc, "R_S is a bounded redundancy measure, built from the strain-energy "
         "entropy under the alternate-load-path procedure, that carries no "
         "calibrated threshold and equals 0 for a statically determinate structure "
@@ -479,74 +446,67 @@ def build():
         "threshold tuned to the structure.", BODY)
 
     # ---- Back matter ----
-    P(doc, "Acknowledgements", CHAP)
+    P(doc, "Acknowledgements", "Normal").runs[0].bold = True
     P(doc, "The author thanks G. Araya-Letelier for early feedback on scope and "
-           "novelty. This research received no external funding.", BODY)
+           "novelty. This research received no external funding. The author "
+           "declares no conflict of interest.", BODY)
 
-    P(doc, "Author contributions", CHAP)
-    P(doc, "Felipe Carvajal Brown: Conceptualization, Methodology, Software, "
-           "Validation, Formal Analysis, Investigation, Writing - original draft, "
-           "Writing - review & editing.", BODY)
-
-    P(doc, "Conflicts of interest", CHAP)
-    P(doc, "The author declares no conflict of interest.", BODY)
-
-    P(doc, "Data availability", CHAP)
-    P(doc, "The source code, scenarios, and scripts that reproduce every number and "
-           "figure in this article are openly available at "
-           "https://github.com/fcarvajalbrown/Entropy-Collapse-Simulator "
-           "(GPL-3.0-or-later).", BODY)
-
-    # ---- References (IEEE-style numeric, order of first appearance) ----
-    P(doc, "References", CHAP)
+    # ---- References (Elsevier-style numeric, order of first appearance) ----
+    P(doc, "References", "Normal").runs[0].bold = True
     for ref in REFERENCES:
-        P(doc, ref, REF)
+        P(doc, ref, "Normal")
 
-    os.makedirs(OUTDIR, exist_ok=True)
+    # ---- Corresponding-author footnote ----
+    fn = P(doc, f"* Corresponding author. Tel.: {PHONE}; e-mail: {EMAIL}",
+           "footnote text")
+    fn.paragraph_format.space_before = Pt(12)
+
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     doc.save(OUT)
     print(f"Wrote {OUT}")
-    print("Note: Spanish front matter (titulo, resumen, palabras clave) is a draft "
-          "translation for author review.")
+    print("Reminder: ACM requires >= 8 pages and an EVEN page count in the final "
+          "PDF; check and pad after conversion.")
+    if PHONE.startswith("["):
+        print("Reminder: replace the PHONE placeholder with the real number "
+              "before submission.")
 
 
-# IEEE-style numeric reference list, numbered in order of first appearance.
+# Elsevier-style numeric reference list, numbered in order of first appearance.
 REFERENCES = [
-    "[1] General Services Administration, \"Progressive Collapse Analysis and "
-    "Design Guidelines for New Federal Office Buildings and Major Modernization "
-    "Projects,\" U.S. General Services Administration, 2003.",
-    "[2] Department of Defense, \"Unified Facilities Criteria UFC 4-023-03: Design "
-    "of Buildings to Resist Progressive Collapse,\" U.S. Department of Defense, "
-    "2016.",
-    "[3] D.-C. Feng et al., \"Physically-based collapse failure criteria in "
+    "[1] General Services Administration, Progressive Collapse Analysis and Design "
+    "Guidelines for New Federal Office Buildings and Major Modernization Projects, "
+    "U.S. General Services Administration, 2003.",
+    "[2] Department of Defense, Unified Facilities Criteria UFC 4-023-03: Design of "
+    "Buildings to Resist Progressive Collapse, U.S. Department of Defense, 2016.",
+    "[3] D.-C. Feng, et al., Physically-based collapse failure criteria in "
     "progressive collapse analyses of random-parameter multi-story RC structures "
-    "subjected to column removal scenarios,\" Engineering Structures, 2024, doi: "
-    "10.1016/j.engstruct.2024.119412.",
-    "[4] M. von Scheven, E. Ramm, and M. Bischoff, \"Quantification of the "
-    "redundancy distribution in truss and beam structures,\" International Journal "
-    "of Solids and Structures, vol. 213, pp. 41-49, 2021, doi: "
-    "10.1016/j.ijsolstr.2020.11.002.",
-    "[5] A. M. Nafday, \"Consequence-based structural design approach for black "
-    "swan events,\" Structural Safety, vol. 33, no. 1, pp. 108-114, 2011.",
-    "[6] K. Ziha, \"Redundancy and robustness of systems of events,\" "
-    "Probabilistic Engineering Mechanics, vol. 15, no. 4, pp. 347-357, 2000.",
-    "[7] Y. Koc, M. Warnier, R. E. Kooij, and F. M. Brazier, \"An entropy-based "
-    "metric to quantify the robustness of power grids against cascading "
-    "failures,\" Safety Science, vol. 59, pp. 126-134, 2013.",
-    "[8] D. M. Frangopol and J. P. Curley, \"Effects of damage and redundancy on "
-    "structural reliability,\" Journal of Structural Engineering, vol. 113, no. 7, "
-    "pp. 1533-1549, 1987.",
-    "[9] M. Ghosn, F. Moses, and D. M. Frangopol, \"Redundancy and robustness of "
-    "highway bridge superstructures and substructures,\" Structure and "
-    "Infrastructure Engineering, vol. 6, no. 1-2, pp. 257-278, 2010.",
-    "[10] K. Lin et al., \"Importance assessment of structural members based on "
-    "elastic-plastic strain energy,\" Advances in Materials Science and "
-    "Engineering, vol. 2019, art. 8019675, 2019.",
-    "[11] C. E. Shannon, \"A mathematical theory of communication,\" Bell System "
-    "Technical Journal, vol. 27, pp. 379-423, 1948.",
-    "[12] C. W. Ziemian and R. D. Ziemian, \"Steel benchmark frames for structural "
+    "subjected to column removal scenarios, Engineering Structures (2024). "
+    "https://doi.org/10.1016/j.engstruct.2024.119412",
+    "[4] M. von Scheven, E. Ramm, M. Bischoff, Quantification of the redundancy "
+    "distribution in truss and beam structures, International Journal of Solids and "
+    "Structures 213 (2021) 41-49. https://doi.org/10.1016/j.ijsolstr.2020.11.002",
+    "[5] A. M. Nafday, Consequence-based structural design approach for black swan "
+    "events, Structural Safety 33 (1) (2011) 108-114.",
+    "[6] K. Ziha, Redundancy and robustness of systems of events, Probabilistic "
+    "Engineering Mechanics 15 (4) (2000) 347-357.",
+    "[7] Y. Koc, M. Warnier, R. E. Kooij, F. M. Brazier, An entropy-based metric to "
+    "quantify the robustness of power grids against cascading failures, Safety "
+    "Science 59 (2013) 126-134.",
+    "[8] D. M. Frangopol, J. P. Curley, Effects of damage and redundancy on "
+    "structural reliability, Journal of Structural Engineering 113 (7) (1987) "
+    "1533-1549.",
+    "[9] M. Ghosn, F. Moses, D. M. Frangopol, Redundancy and robustness of highway "
+    "bridge superstructures and substructures, Structure and Infrastructure "
+    "Engineering 6 (1-2) (2010) 257-278.",
+    "[10] K. Lin, et al., Importance assessment of structural members based on "
+    "elastic-plastic strain energy, Advances in Materials Science and Engineering "
+    "2019 (2019) 8019675.",
+    "[11] C. E. Shannon, A mathematical theory of communication, Bell System "
+    "Technical Journal 27 (1948) 379-423.",
+    "[12] C. W. Ziemian, R. D. Ziemian, Steel benchmark frames for structural "
     "analysis and validation studies: Finite element models and numerical "
-    "simulation data,\" Data in Brief, vol. 39, art. 107564, 2021, doi: "
-    "10.1016/j.dib.2021.107564.",
+    "simulation data, Data in Brief 39 (2021) 107564. "
+    "https://doi.org/10.1016/j.dib.2021.107564",
 ]
 
 

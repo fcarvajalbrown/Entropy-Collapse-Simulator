@@ -10,65 +10,27 @@ Every reported number is COMPUTED at build time from the analysis modules and
 the validation harness (no hardcoded results), so the manuscript cannot drift
 out of sync with the code.
 
-    python manuscript/generate_figures.py   # produce figures first
-    python manuscript/build_docx.py          # -> manuscript/Carvajal_RDLC_manuscript.docx
+    python manuscript/generate_figures.py        # produce figures first
+    python manuscript/RDLC/build_docx.py          # -> manuscript/RDLC/Carvajal_RDLC_manuscript.docx
 """
 
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+HERE = os.path.dirname(os.path.abspath(__file__))
+MANU = os.path.abspath(os.path.join(HERE, ".."))   # manuscript/ (shared results.py + figures/)
+sys.path.insert(0, MANU)
 
 from docx import Document
 from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
-from structure.frames import frame_building_2d, frame_pratt_bridge, frame_2d_simple
-from entropy import robustness as rb
-from analysis import criteria as C
-from analysis import importance as imp
-from analysis import parametric as par
-import benchmark as bench
+from results import compute_results  # single source of computed numbers
 
-HERE = os.path.dirname(__file__)
-FIG = os.path.join(HERE, "figures")
+FIG = os.path.join(MANU, "figures")
 OUT = os.path.join(HERE, "Carvajal_RDLC_manuscript.docx")
 FONT = "Times New Roman"
-TRUSS_STEP = 0.3
-
-
-# --------------------------------------------------------------------------
-# Compute every reported number from the code
-# --------------------------------------------------------------------------
-
-def compute_results() -> dict:
-    beam = rb.analyze(frame_2d_simple.build())
-    frame = rb.analyze(frame_building_2d.build())
-    truss = rb.analyze(frame_pratt_bridge.build())
-    large = rb.analyze(frame_building_2d.build(n_bays=3, n_stories=6))
-    large_frame = frame_building_2d.build(n_bays=3, n_stories=6)
-
-    cmp = C.compare(frame_pratt_bridge.build(), max_steps=40, load_factor_step=TRUSS_STEP)
-    triggers = {k: (cmp.history[v].load_factor if v is not None else None)
-                for k, v in cmp.first_trigger.items()}
-
-    imp_frame = imp.compare(frame_building_2d.build())
-    imp_truss = imp.compare(frame_pratt_bridge.build())
-    sweep = par.redundancy_sweep()
-    ssens = par.step_size_sensitivity()
-    ensemble = par.importance_ensemble()
-
-    analytical = bench.run_analytical()
-    independent = bench.run_independent()
-    index_checks = bench.run_index_validation()
-
-    return dict(beam=beam, frame=frame, truss=truss, large=large,
-                large_n=(len(large_frame.nodes), len(large_frame.members)),
-                triggers=triggers, imp_frame=imp_frame, imp_truss=imp_truss,
-                sweep=sweep, ssens=ssens, ensemble=ensemble,
-                analytical=analytical, independent=independent,
-                index_checks=index_checks)
 
 
 # --------------------------------------------------------------------------
@@ -547,6 +509,7 @@ def build():
     for ref in REFERENCES:
         reference(doc, ref)
 
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     doc.save(OUT)
     print(f"Wrote {OUT}")
 
