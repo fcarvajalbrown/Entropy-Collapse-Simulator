@@ -33,7 +33,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from core.models import FrameData
-from solver.equilibrium import solve
+from solver.equilibrium import solve, solve_full
+from solver.failure import _combined_stress
 from entropy.robustness import analyze as analyze_robustness, is_stable
 
 
@@ -138,4 +139,129 @@ def compare(frame: FrameData, load_factor: float = 1.0) -> ImportanceComparison:
         spearman_rho=rho,
         entropy_rank=entropy_rank,
         compliance_rank=compliance_rank,
+    )
+
+
+# ===========================================================================
+# Code-style alternate-load-path (ALP) agreement study
+# ===========================================================================
+#
+# Progressive-collapse guidance (GSA 2003; UFC 4-023-03) assesses robustness by
+# the alternate load path method: notionally remove a primary column, re-analyse,
+# and check whether the surviving structure carries the load. The engineering
+# severity of losing a column is naturally measured by the worst demand-capacity
+# ratio (DCR) that appears in the survivors -- a removal that leaves a member
+# grossly overstressed (or forms a mechanism) is critical. That check is what the
+# expensive nonlinear ALP analysis ultimately refines.
+#
+# The claim under test: the calibration-free entropy criticality dH_k (obtained
+# from a SINGLE linear solve, no per-structure threshold) ranks the columns in
+# the same order as this code-style DCR severity, so R_S is a cheap triage that
+# tells the engineer which columns to spend the expensive nonlinear ALP effort on.
+#
+# Because the model is linear, the post-removal max DCR scales linearly with the
+# load factor, so the *ranking* of columns by severity is independent of the load
+# level -- as is dH_k (scale-invariant). The agreement is therefore a structural
+# property, not an artefact of the chosen load.
+
+
+@dataclass
+class ColumnALPComparison:
+    frame_name: str
+    column_ids: List[int]                 # members classified as columns
+    entropy_drop: Dict[int, float]        # dH_k per column
+    alp_severity: Dict[int, float]        # post-removal max DCR (inf = mechanism)
+    spearman_rho: float                   # rank correlation of dH_k vs ALP severity
+    entropy_rank: List[int]               # columns, most critical first (dH_k)
+    alp_rank: List[int]                   # columns, most severe first (max DCR)
+    topk_overlap: Dict[int, int]          # k -> shared members in both top-k sets
+    load_factor: float
+
+
+def column_member_ids(frame: FrameData) -> List[int]:
+    """
+    Ids of the vertical (column) members, classified purely by geometry: a
+    column connects two nodes at the same x with different y. This keeps the
+    ALP set frame-agnostic (no reliance on member-id ordering) and excludes
+    beams (same y) and any diagonal.
+    """
+    xy = {n.id: (n.x, n.y) for n in frame.nodes}
+    cols: List[int] = []
+    for m in frame.members:
+        (x1, y1), (x2, y2) = xy[m.node_start], xy[m.node_end]
+        if abs(x1 - x2) < 1e-9 and abs(y1 - y2) > 1e-9:
+            cols.append(m.id)
+    return cols
+
+
+def _peak_dcr_surviving(u: np.ndarray, frame: FrameData) -> float:
+    """Largest DCR = sigma_max/sigma_y over the non-failed (surviving) members."""
+    peak = 0.0
+    for m in frame.members:
+        if m.failed:
+            continue
+        peak = max(peak, _combined_stress(m, u, frame) / m.sigma_y)
+    return peak
+
+
+def alp_column_severity(
+    frame: FrameData,
+    column_ids: Optional[List[int]] = None,
+    load_factor: float = 1.0,
+) -> Dict[int, float]:
+    """
+    Code-style ALP severity of each column: notionally remove the column,
+    re-analyse at the design load, and return the worst surviving DCR. A removal
+    that forms a mechanism returns +inf (the alternate path fails outright).
+    """
+    if column_ids is None:
+        column_ids = column_member_ids(frame)
+
+    out: Dict[int, float] = {}
+    for cid in column_ids:
+        work = copy.deepcopy(frame)
+        next(m for m in work.members if m.id == cid).failed = True
+        if not is_stable(work):
+            out[cid] = math.inf
+            continue
+        u, _ = solve_full(work, step=0, load_factor=load_factor)
+        out[cid] = _peak_dcr_surviving(u, work)
+    return out
+
+
+def compare_column_alp(
+    frame: FrameData,
+    load_factor: float = 1.0,
+) -> ColumnALPComparison:
+    """
+    Compare the entropy column-criticality ranking (dH_k) against the code-style
+    single-column-removal ALP severity (post-removal max DCR) on every column,
+    and report their Spearman rank correlation and top-k overlap.
+    """
+    cols = column_member_ids(frame)
+    rep = analyze_robustness(frame, load_factor=load_factor)
+    dH_all = {r.member_id: r.entropy_drop for r in rep.removals}
+    cols = [c for c in cols if c in dH_all]          # keep analysed columns
+    dH = {c: dH_all[c] for c in cols}
+    sev = alp_column_severity(frame, cols, load_factor)
+
+    rho = spearman_rho([dH[c] for c in cols], [sev[c] for c in cols])
+    entropy_rank = sorted(cols, key=lambda c: dH[c], reverse=True)
+    alp_rank = sorted(cols, key=lambda c: sev[c], reverse=True)
+
+    topk_overlap: Dict[int, int] = {}
+    for k in (1, 3, 5):
+        if k <= len(cols):
+            topk_overlap[k] = len(set(entropy_rank[:k]) & set(alp_rank[:k]))
+
+    return ColumnALPComparison(
+        frame_name=frame.name,
+        column_ids=cols,
+        entropy_drop=dH,
+        alp_severity=sev,
+        spearman_rho=rho,
+        entropy_rank=entropy_rank,
+        alp_rank=alp_rank,
+        topk_overlap=topk_overlap,
+        load_factor=load_factor,
     )

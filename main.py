@@ -27,7 +27,9 @@ Common arguments:
 import argparse
 import os
 
-from structure.frames import frame_2d_simple, frame_building_2d, frame_pratt_bridge
+from structure.frames import (
+    frame_2d_simple, frame_building_2d, frame_pratt_bridge, frame_vogel_six_storey
+)
 from simulation.runner import run
 from entropy import robustness as robustness_mod
 from analysis import criteria as criteria_mod
@@ -41,6 +43,7 @@ FRAME_BUILDERS = {
     "building_2d":    frame_building_2d.build,
     "building_large": lambda: frame_building_2d.build(n_bays=3, n_stories=6),
     "pratt_bridge":   frame_pratt_bridge.build,
+    "vogel_six_storey": frame_vogel_six_storey.build,
 }
 
 

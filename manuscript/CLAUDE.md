@@ -50,6 +50,26 @@ Notes on the two rejections: both were editorial desk-rejects on venue fit
 returned reviewer comments, so there is nothing substantive to revise off them
 before the next submission.
 
+## Paper 2 venue plan (construction-journal extension)
+
+Decided 2026-07-05. Paper 2 (the R_S screening-tool extension; see
+`EXTENSION_PLAN.md`) targets **Revista de la Construccion (RDLC)** and commits to
+the construction-practice reframe: R_S as a calibration-free progressive-collapse
+screening/triage index for steel frames, anchored to the GSA / UFC 4-023-03
+alternate-load-path (notional column removal) method, demonstrated on a realistic
+steel building (the Vogel 1985 frame) with a **quantified triage payoff**. Match
+the register of the one computational steel method paper RDLC has accepted. RDLC
+is materials-science-dominated with no entropy/robustness-index precedent, so this
+is an uphill fit (see the `rdlc-acceptance-bar` memory for the full acceptance-bar
+research and the desk-screen checklist).
+
+**Contingency (per Felipe, 2026-07-05):** if RDLC desk-rejects paper 2 (i.e. a
+second RDLC rejection), do NOT resubmit to RDLC. Pivot to a better-fit structural
+/ computational-mechanics venue (survey candidates such as Journal of
+Constructional Steel Research, Structures, Engineering Structures, Journal of
+Building Engineering, Ingeniare; LAJSS as fallback) at that point. Submission of
+paper 2 stays blocked until LAJSS resolves paper 1.
+
 ## Per-journal specifics
 
 - **LAJSS** — `LAJSS/build_docx_lajss.py`. Submitted; in peer review.

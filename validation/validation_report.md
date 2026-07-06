@@ -15,6 +15,7 @@
 | 2D Moment Frame (2-bay, 3-story) | 5.637584e-04 | 5.637584e-04 | 0.0000 | 1.578523e+02 | 1.578523e+02 | 0.0000 |
 | 2D Moment Frame (3-bay, 6-story) | 1.973154e-03 | 1.973154e-03 | 0.0000 | 1.368054e+03 | 1.368054e+03 | 0.0000 |
 | Redundant truss bridge (6-panel, 30 m, X-braced) | 1.119282e-02 | 1.119282e-02 | 0.0000 | 2.096334e+03 | 2.096334e+03 | 0.0000 |
+| Vogel six-storey two-bay steel frame (1985) | 7.138382e-02 | 7.138382e-02 | 0.0000 | 1.109465e+04 | 1.109465e+04 | 0.0000 |
 
 ## Tier 3 - Index validation (distribution, ALP, failure, stability)
 

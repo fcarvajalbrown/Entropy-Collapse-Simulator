@@ -15,7 +15,9 @@ To add a new scenario:
 
 from core.models import SimulationResult
 from simulation import runner
-from structure.frames import frame_2d_simple, frame_building_2d, frame_pratt_bridge
+from structure.frames import (
+    frame_2d_simple, frame_building_2d, frame_pratt_bridge, frame_vogel_six_storey
+)
 
 
 # ---------------------------------------------------------------------------
@@ -105,14 +107,44 @@ def scenario_pratt_bridge(
     )
 
 
+def scenario_vogel_six_storey(
+    max_steps: int = 150,
+    collapse_method: str = "zscore"
+) -> SimulationResult:
+    """
+    Vogel (1985) six-storey two-bay steel calibration frame -- a realistic,
+    published-benchmark redundant moment frame (see
+    structure/frames/frame_vogel_six_storey.py for provenance and scope).
+
+    Uses incremental loading (load_factor_step=0.3) to drive progressive
+    failures across the redundant load paths.
+
+    Args:
+        max_steps: Maximum simulation steps.
+        collapse_method: "zscore" or "threshold".
+
+    Returns:
+        SimulationResult from the runner.
+    """
+    frame = frame_vogel_six_storey.build()
+    return runner.run(
+        frame,
+        max_steps=max_steps,
+        collapse_method=collapse_method,
+        load_factor_start=1.0,
+        load_factor_step=0.3,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Scenario registry
 # ---------------------------------------------------------------------------
 
 SCENARIOS: dict[str, callable] = {
-    "2d_simple":     scenario_2d_simple,
-    "building_2d":   scenario_building_2d,
-    "pratt_bridge":  scenario_pratt_bridge,
+    "2d_simple":        scenario_2d_simple,
+    "building_2d":      scenario_building_2d,
+    "pratt_bridge":     scenario_pratt_bridge,
+    "vogel_six_storey": scenario_vogel_six_storey,
 }
 
 

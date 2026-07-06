@@ -16,7 +16,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from structure.frames import frame_building_2d
+from structure.frames import frame_building_2d, frame_vogel_six_storey
 from analysis import importance as imp
 from analysis import parametric as par
 
@@ -61,6 +61,27 @@ def test_importance_ensemble_not_monotone():
           f"{sum(1 for r in rhos if r < 0)}/{len(rhos)} negative")
 
 
+def test_column_alp_agreement_vogel():
+    """
+    On the Vogel benchmark building the calibration-free entropy column ranking
+    (dH_k) strongly agrees with the code-style single-column-removal ALP severity
+    (post-removal max DCR): high Spearman rho, same most-critical column, and the
+    ranking is load-invariant (linear model). This substantiates the screening
+    claim -- R_S triage points at the columns worth expensive nonlinear ALP.
+    """
+    c = imp.compare_column_alp(frame_vogel_six_storey.build())
+    assert len(c.column_ids) == 18
+    assert -1.0 <= c.spearman_rho <= 1.0
+    assert abs(c.spearman_rho - 0.9092) < 1e-2      # strong agreement (anchor)
+    assert c.entropy_rank[0] == c.alp_rank[0]        # same worst column
+    assert c.topk_overlap[5] >= 4                    # top-5 mostly shared
+    # Ranking is independent of load level (both measures are scale-invariant).
+    c2 = imp.compare_column_alp(frame_vogel_six_storey.build(), load_factor=0.4)
+    assert c2.alp_rank == c.alp_rank
+    print(f"  PASS: Vogel column dH_k vs code-ALP DCR rho = {c.spearman_rho:+.3f}, "
+          f"top-1 agree, top-5 overlap {c.topk_overlap[5]}/5, load-invariant")
+
+
 def test_entropy_lags_dcr_by_construction():
     ss = par.step_size_sensitivity()
     for step, trig in ss.items():
@@ -75,5 +96,6 @@ if __name__ == "__main__":
     test_spearman_bounded_and_rankings_differ()
     test_rs_monotonic_in_redundancy()
     test_importance_ensemble_not_monotone()
+    test_column_alp_agreement_vogel()
     test_entropy_lags_dcr_by_construction()
     print("All Phase 10 tests passed.\n")

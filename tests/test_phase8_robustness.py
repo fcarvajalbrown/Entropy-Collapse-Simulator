@@ -16,13 +16,16 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from structure.frames import frame_2d_simple, frame_building_2d, frame_pratt_bridge
+from structure.frames import (
+    frame_2d_simple, frame_building_2d, frame_pratt_bridge, frame_vogel_six_storey
+)
 from entropy import robustness as rb
 
 
 def test_intact_frames_stable():
     """Every intact benchmark frame is kinematically stable."""
-    for mod in (frame_2d_simple, frame_building_2d, frame_pratt_bridge):
+    for mod in (frame_2d_simple, frame_building_2d, frame_pratt_bridge,
+                frame_vogel_six_storey):
         assert rb.is_stable(mod.build()), f"{mod.__name__} intact frame unstable"
     print("  PASS: all intact frames stable")
 
@@ -41,6 +44,22 @@ def test_redundant_frame_positive_robustness():
     assert 0.0 < rep.robustness_index <= 1.0
     assert rep.unstable_members == []
     print(f"  PASS: moment-frame R_S = {rep.robustness_index:.3f}, "
+          f"no unstable single removals")
+
+
+def test_vogel_frame_redundant():
+    """
+    The Vogel (1985) six-storey two-bay steel calibration frame is a realistic
+    redundant moment frame: 0 < R_S <= 1, no single removal is a mechanism, and
+    the 30-member frame builds/solves at publishable size.
+    """
+    frame = frame_vogel_six_storey.build()
+    assert len(frame.nodes) == 21 and len(frame.members) == 30
+    rep = rb.analyze(frame)
+    assert 0.0 < rep.robustness_index <= 1.0
+    assert rep.unstable_members == []
+    assert rep.mechanism_fraction == 0.0
+    print(f"  PASS: Vogel frame R_S = {rep.robustness_index:.3f}, "
           f"no unstable single removals")
 
 
@@ -75,7 +94,10 @@ def test_golden_values():
     t = rb.analyze(frame_pratt_bridge.build())
     assert abs(t.intact_entropy_norm - 0.7906) < 1e-3
     assert abs(t.robustness_index - 0.7861) < 1e-3
-    print("  PASS: golden R_S/H0 values match (moment frame & truss)")
+    v = rb.analyze(frame_vogel_six_storey.build())
+    assert abs(v.intact_entropy_norm - 0.8002) < 1e-3
+    assert abs(v.robustness_index - 0.7882) < 1e-3
+    print("  PASS: golden R_S/H0 values match (moment frame, truss & Vogel)")
 
 
 def test_removal_does_not_mutate_caller():
@@ -91,6 +113,7 @@ if __name__ == "__main__":
     test_intact_frames_stable()
     test_non_redundant_truss_zero_robustness()
     test_redundant_frame_positive_robustness()
+    test_vogel_frame_redundant()
     test_indices_in_unit_interval()
     test_ranking_sorted_by_drop()
     test_golden_values()

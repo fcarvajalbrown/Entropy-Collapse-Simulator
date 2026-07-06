@@ -41,7 +41,7 @@ import numpy as np
 
 from core.models import FrameData, Node, Member, Load, Material
 from solver.equilibrium import solve_full
-from structure.frames import frame_building_2d, frame_pratt_bridge
+from structure.frames import frame_building_2d, frame_pratt_bridge, frame_vogel_six_storey
 
 
 # ===========================================================================
@@ -270,6 +270,7 @@ def run_independent() -> List[dict]:
         frame_building_2d.build,
         lambda: frame_building_2d.build(n_bays=3, n_stories=6),  # larger case study
         frame_pratt_bridge.build,
+        frame_vogel_six_storey.build,          # published Vogel (1985) benchmark
     ]
     for builder in builders:
         frame = builder()
@@ -319,7 +320,7 @@ def run_index_validation() -> List[dict]:
     from solver.equilibrium import solve_full as _solve_full
     from entropy.robustness import is_stable
     from core.models import FrameData, Node, Member, Load
-    from structure.frames import frame_building_2d, frame_pratt_bridge
+    from structure.frames import frame_building_2d, frame_pratt_bridge, frame_vogel_six_storey
 
     rows: List[dict] = []
 
