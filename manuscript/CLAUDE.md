@@ -70,6 +70,16 @@ Constructional Steel Research, Structures, Engineering Structures, Journal of
 Building Engineering, Ingeniare; LAJSS as fallback) at that point. Submission of
 paper 2 stays blocked until LAJSS resolves paper 1.
 
+**Paper 2 draft (2026-07-05):** drafted in `manuscript/RDLC_paper2/`
+(`build_docx_rdlc2.py` -> `Carvajal_RDLC_screening_manuscript.docx`). It imports
+`compute_paper2_results()` from the shared `results.py`, so its numbers are live.
+Content: the R_S screening-tool reframe on the Vogel (1985) benchmark building
+(scenario `vogel_six_storey`), the R_S-vs-code-ALP column agreement
+(Spearman rho = 0.91, `analysis/importance.compare_column_alp`), and the
+base-fixity design-variant demo (`analysis/design_variants`). Figures
+`fig_alp_agreement.png` and `fig_design_variants.png`. NOT submitted (blocked
+until LAJSS resolves); no cover letter drafted.
+
 ## Per-journal specifics
 
 - **LAJSS** — `LAJSS/build_docx_lajss.py`. Submitted; in peer review.

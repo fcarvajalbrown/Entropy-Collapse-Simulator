@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from structure.frames import frame_building_2d, frame_vogel_six_storey
 from analysis import importance as imp
 from analysis import parametric as par
+from analysis import design_variants as dv
 
 
 def test_spearman_bounded_and_rankings_differ():
@@ -82,6 +83,37 @@ def test_column_alp_agreement_vogel():
           f"top-1 agree, top-5 overlap {c.topk_overlap[5]}/5, load-invariant")
 
 
+def test_design_variant_base_fixity():
+    """
+    The design-decision demo: R_S distinguishes the Vogel building with fixed
+    (moment) bases from a pinned-base variant and ranks the fixed-base design as
+    more robust; the less-redundant pinned design admits single-column-loss
+    mechanisms exactly at the three base columns, which the entropy criticality
+    ranking also places at the top. R_S is on the redundancy axis (not stiffness).
+    """
+    study = dv.vogel_base_fixity_study()
+    fixed = next(v for v in study.variants if "Fixed" in v.label)
+    pinned = next(v for v in study.variants if "Pinned" in v.label)
+
+    # R_S ranks the more-redundant (fixed-base) design as more robust.
+    assert study.more_robust == fixed.label
+    assert fixed.robustness_index > pinned.robustness_index
+    assert abs(fixed.robustness_index - 0.7882) < 1e-3
+    assert abs(pinned.robustness_index - 0.7023) < 1e-3
+
+    # Fixed base: fully redundant; pinned base: single base-column losses collapse.
+    assert fixed.mechanism_fraction == 0.0 and fixed.mechanism_columns == []
+    assert pinned.mechanism_fraction > 0.0
+    assert pinned.mechanism_columns == [0, 1, 2]
+
+    # The criticality ranking flags exactly the members driving the vulnerability.
+    top = set(pinned.column_rank[:len(pinned.mechanism_columns)])
+    assert set(pinned.mechanism_columns) == top
+    print(f"  PASS: R_S {fixed.robustness_index:.3f} (fixed) > "
+          f"{pinned.robustness_index:.3f} (pinned); pinned mechanisms at base "
+          f"columns {pinned.mechanism_columns}, top-ranked by dH_k")
+
+
 def test_entropy_lags_dcr_by_construction():
     ss = par.step_size_sensitivity()
     for step, trig in ss.items():
@@ -97,5 +129,6 @@ if __name__ == "__main__":
     test_rs_monotonic_in_redundancy()
     test_importance_ensemble_not_monotone()
     test_column_alp_agreement_vogel()
+    test_design_variant_base_fixity()
     test_entropy_lags_dcr_by_construction()
     print("All Phase 10 tests passed.\n")

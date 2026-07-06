@@ -147,15 +147,29 @@ def _column_section(col: int, storey: int) -> Material:
     return HEB160              # storeys 5-6
 
 
-def build() -> FrameData:
+def build(base: str = "fixed") -> FrameData:
     """
     Construct the Vogel (1985) six-storey two-bay steel calibration frame.
 
+    Args:
+        base: Column-base condition, a genuine steel-design decision used by the
+              design-variant robustness study (analysis/design_variants.py).
+              "fixed" (default, the as-published Vogel frame) fully encastres the
+              base nodes (moment bases). "pinned" restrains only translation at
+              the bases (free in-plane rotation), a less redundant design whose
+              lower alternate-load-path redundancy R_S is expected to detect.
+
     Returns:
-        FrameData with 21 nodes, 30 members (18 columns, 12 beams), fully
-        fixed bases, tributary gravity joint loads and Vogel's notional
+        FrameData with 21 nodes, 30 members (18 columns, 12 beams), the selected
+        base condition, tributary gravity joint loads and Vogel's notional
         horizontal loads at the windward column line.
     """
+    if base not in ("fixed", "pinned"):
+        raise ValueError(f"base must be 'fixed' or 'pinned', got {base!r}")
+    # Base DOFs: fixed = encastre (all 6); pinned = translations + out-of-plane,
+    # in-plane rotation (rz = 5) free.
+    base_fixed = [0, 1, 2, 3, 4, 5] if base == "fixed" else [0, 1, 2, 3, 4]
+
     def node_id(level, col):
         return level * N_COLS + col
 
@@ -163,7 +177,7 @@ def build() -> FrameData:
     nodes = []
     for level in range(N_LEVELS):
         for col in range(N_COLS):
-            fixed = [0, 1, 2, 3, 4, 5] if level == 0 else list(PLANAR_DOFS)
+            fixed = list(base_fixed) if level == 0 else list(PLANAR_DOFS)
             nodes.append(Node(id=node_id(level, col),
                               x=col * BAY_WIDTH, y=level * STORY_HEIGHT, z=0.0,
                               fixed_dofs=fixed))
@@ -203,4 +217,6 @@ def build() -> FrameData:
         loads.append(Load(node_id=node_id(level, 0), dof=0, magnitude=h))
 
     name = "Vogel six-storey two-bay steel frame (1985)"
+    if base != "fixed":
+        name += f" [{base}-base variant]"
     return FrameData(name=name, nodes=nodes, members=members, loads=loads)

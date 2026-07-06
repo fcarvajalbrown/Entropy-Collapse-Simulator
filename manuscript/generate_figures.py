@@ -16,11 +16,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from structure.frames import frame_building_2d, frame_pratt_bridge
+from structure.frames import frame_building_2d, frame_pratt_bridge, frame_vogel_six_storey
 from entropy import robustness as rb
 from analysis import criteria as C
 from analysis import importance as imp
 from analysis import parametric as par
+from analysis import design_variants as dv
 
 FIG_DIR = os.path.join(os.path.dirname(__file__), "figures")
 os.makedirs(FIG_DIR, exist_ok=True)
@@ -169,6 +170,70 @@ def fig_importance_ensemble():
     plt.close(fig)
 
 
+def fig_alp_agreement():
+    """
+    Paper 2: entropy column criticality dH_k vs code-style post-removal max DCR
+    for the Vogel building; strong agreement means R_S triages the columns that
+    the alternate-load-path check flags.
+    """
+    c = imp.compare_column_alp(frame_vogel_six_storey.build())
+    cols = c.column_ids
+    x = [c.entropy_drop[i] for i in cols]
+    y = [c.alp_severity[i] for i in cols]
+    top2 = c.entropy_rank[:2]
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.6))
+    for i, xi, yi in zip(cols, x, y):
+        crit = i in top2
+        ax.scatter(xi, yi, s=58 if crit else 32,
+                   color="firebrick" if crit else "steelblue",
+                   zorder=3 if crit else 2, edgecolor="black", linewidth=0.4)
+    # Label the two most-critical columns jointly, below-left with a connector.
+    cx = sum(c.entropy_drop[i] for i in top2) / 2
+    cy = sum(c.alp_severity[i] for i in top2) / 2
+    ax.annotate(f"most critical:\ncols {top2[0]} & {top2[1]}",
+                xy=(cx, cy), xytext=(cx - 0.12, cy - 1.6), fontsize=8.5,
+                ha="center", arrowprops=dict(arrowstyle="->", lw=0.8))
+    ax.set_xlabel("Entropy criticality  dH_k  (one linear solve)")
+    ax.set_ylabel("Code ALP severity: post-removal max DCR")
+    ax.set_title(f"R_S column triage vs alternate-load-path severity\n"
+                 f"(Vogel frame, Spearman rho = {c.spearman_rho:+.2f})")
+    ax.grid(True, ls=":", alpha=0.5)
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIG_DIR, "fig_alp_agreement.png"), dpi=160)
+    plt.close(fig)
+
+
+def fig_design_variants():
+    """
+    Paper 2: R_S distinguishes the fixed-base Vogel building from a pinned-base
+    variant; the pinned design admits single-column-loss mechanisms at the base
+    columns, which R_S detects as a drop in robustness.
+    """
+    study = dv.vogel_base_fixity_study()
+    variants = sorted(study.variants, key=lambda v: v.robustness_index, reverse=True)
+    labels = [v.label.replace(" (as-built)", "\n(as-built)") for v in variants]
+    rs = [v.robustness_index for v in variants]
+    mech = [v.mechanism_fraction for v in variants]
+
+    fig, ax = plt.subplots(figsize=(6.6, 4.4))
+    colors = ["seagreen", "indianred"]
+    bars = ax.bar(labels, rs, color=colors[:len(variants)], edgecolor="black", width=0.55)
+    for b, v, mf in zip(bars, variants, mech):
+        ax.text(b.get_x() + b.get_width() / 2, v.robustness_index + 0.012,
+                f"R_S = {v.robustness_index:.3f}", ha="center", fontsize=9, fontweight="bold")
+        note = (f"{mf:.0%} single-loss\nmechanisms"
+                + (f"\n(cols {v.mechanism_columns})" if v.mechanism_columns else ""))
+        ax.text(b.get_x() + b.get_width() / 2, v.robustness_index / 2, note,
+                ha="center", va="center", fontsize=8, color="white")
+    ax.set_ylabel("Entropy Robustness Index  R_S")
+    ax.set_ylim(0, 0.9)
+    ax.set_title("R_S detects the less-redundant design (Vogel building: base fixity)")
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIG_DIR, "fig_design_variants.png"), dpi=160)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_entropy_trajectory()
     fig_criteria_comparison()
@@ -176,4 +241,6 @@ if __name__ == "__main__":
     fig_redundancy_sweep()
     fig_importance_scatter()
     fig_importance_ensemble()
+    fig_alp_agreement()
+    fig_design_variants()
     print(f"All manuscript figures written to {FIG_DIR}")
