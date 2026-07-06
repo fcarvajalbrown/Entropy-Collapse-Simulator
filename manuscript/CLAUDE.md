@@ -39,7 +39,7 @@ time. Submit sequentially, never in parallel.
 
 | Journal | Folder | Status (2026-07-05) |
 |---|---|---|
-| LAJSS (Latin American Journal of Solids and Structures) | `LAJSS/` | LIVE - passed initial screen (plagiarism, scope, formatting, English); assigned to peer reviewers. |
+| LAJSS (Latin American Journal of Solids and Structures) | `LAJSS/` | No longer under consideration (per author, 2026-07-05); exclusivity now clear for paper 2. |
 | Ingenieria e Investigacion (UNAL, Colombia) | `IngInv/` | Submission 128239 acknowledged; exact status unconfirmed - verify it is closed/withdrawn so it does not overlap LAJSS. |
 | Applied and Computational Mechanics (Univ. West Bohemia, Czech) | `ACM/` | DESK-REJECTED - editorial priority screen, no peer review, no actionable critique. Dead; build kept for reference. |
 | Revista de la Construccion / RCUC (PUC Chile) | `RDLC/` | DESK-REJECTED - discipline / novelty / general-significance screen; explicitly "not necessarily a reflection of the quality of your research." No peer review. Dead. |
@@ -77,8 +77,15 @@ Content: the R_S screening-tool reframe on the Vogel (1985) benchmark building
 (scenario `vogel_six_storey`), the R_S-vs-code-ALP column agreement
 (Spearman rho = 0.91, `analysis/importance.compare_column_alp`), and the
 base-fixity design-variant demo (`analysis/design_variants`). Figures
-`fig_alp_agreement.png` and `fig_design_variants.png`. NOT submitted (blocked
-until LAJSS resolves); no cover letter drafted.
+`fig_alp_agreement.png` and `fig_design_variants.png`. Conclusions are prose and
+Equations (1)-(2) are native Word (OMML) objects.
+
+**Submission status (2026-07-05):** Felipe confirms paper 1 is no longer under
+consideration at LAJSS, so the single-venue exclusivity block is clear. Paper 2
+is being submitted to Revista de la Construccion. Comments-for-the-Editor text
+was prepared; it makes no "not under review elsewhere" claim in its body (that
+affirmation is the separate OJS checkbox). The "second RDLC rejection -> pivot
+venue" contingency above still stands.
 
 ## Per-journal specifics
 

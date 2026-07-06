@@ -30,6 +30,8 @@ from docx import Document
 from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 from results import compute_paper2_results  # single source of computed numbers
 
@@ -136,6 +138,67 @@ def reference(doc, text):
     p.paragraph_format.left_indent = Cm(0.75)
     p.paragraph_format.first_line_indent = Cm(-0.75)
     p.paragraph_format.space_after = Pt(4); _run(p, text, 10)
+
+
+# --------------------------------------------------------------------------
+# Native Word (OMML) equation helpers
+# --------------------------------------------------------------------------
+# Math symbols kept as chr(codepoint) so the source stays plain ASCII.
+_SUM = chr(0x2211)      # n-ary summation
+_MINUS = chr(0x2212)    # minus sign
+_ELEM = chr(0x2208)     # element-of
+
+
+def _E(tag, *kids):
+    """Build an m:<tag> element, appending element children (lists flattened)."""
+    el = OxmlElement("m:" + tag)
+    for k in kids:
+        if isinstance(k, (list, tuple)):
+            for x in k:
+                el.append(x)
+        else:
+            el.append(k)
+    return el
+
+
+def _mt(text, nor=False):
+    """A math text run. nor=True forces upright (operators, digits, function names)."""
+    r = OxmlElement("m:r")
+    if nor:
+        rPr = OxmlElement("m:rPr")
+        rPr.append(OxmlElement("m:nor"))
+        r.append(rPr)
+    t = OxmlElement("m:t")
+    t.set(qn("xml:space"), "preserve")
+    t.text = text
+    r.append(t)
+    return r
+
+
+def _sub(base, sub):
+    return _E("sSub", _E("e", base), _E("sub", sub))
+
+
+def _frac(num, den):
+    return _E("f", _E("num", num), _E("den", den))
+
+
+def _sum(sub, body):
+    """N-ary summation with a lower index and no upper limit."""
+    naryPr = _E("naryPr")
+    chr_ = OxmlElement("m:chr"); chr_.set(qn("m:val"), _SUM); naryPr.append(chr_)
+    ll = OxmlElement("m:limLoc"); ll.set(qn("m:val"), "subSup"); naryPr.append(ll)
+    sh = OxmlElement("m:supHide"); sh.set(qn("m:val"), "1"); naryPr.append(sh)
+    return _E("nary", naryPr, _E("sub", sub), _E("sup"), _E("e", body))
+
+
+def equation(doc, elements, number):
+    """Centered display equation (native Word OMML) followed by its number."""
+    p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_after = Pt(6)
+    p._p.append(_E("oMath", *elements))
+    _run(p, "     (" + number + ")", 10)
+    return p
 
 
 # --------------------------------------------------------------------------
@@ -283,9 +346,17 @@ def build():
     body(doc, "At a given load let U_i be the elastic strain energy in active "
         "member i, with N active members. The normalized energy distribution and "
         "its Shannon entropy are given by Equation (1).")
-    eq = doc.add_paragraph(); eq.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    _run(eq, "p_i = U_i / sum(U_j),    S = - sum p_i ln(p_i),    H = S / ln(N)"
-             "          (1)", 10)
+    equation(doc, [
+        _sub(_mt("p"), _mt("i")), _mt(" = ", nor=True),
+        _frac(_sub(_mt("U"), _mt("i")), _sum(_mt("j"), _sub(_mt("U"), _mt("j")))),
+        _mt("   ,    ", nor=True),
+        _mt("S"), _mt(" = ", nor=True), _mt(_MINUS, nor=True),
+        _sum(_mt("i"), [_sub(_mt("p"), _mt("i")), _mt(" ln ", nor=True),
+                        _sub(_mt("p"), _mt("i"))]),
+        _mt("   ,    ", nor=True),
+        _mt("H"), _mt(" = ", nor=True),
+        _frac(_mt("S"), [_mt("ln ", nor=True), _mt("N")]),
+    ], "1")
     body(doc, "H equals 1 when strain energy is shared evenly and 0 when a single "
         "member holds it all. Because the p_i are ratios, H does not change as "
         "the load is scaled on a fixed topology; it moves only when the load path "
@@ -296,9 +367,12 @@ def build():
         "for the survivors after removing member k (with H_k = 0 when the removal "
         "forms a mechanism), the per-member entropy drop is dH_k = H_0 - H_k and "
         "the index is the mean over the removal set R, Equation (2).")
-    eq2 = doc.add_paragraph(); eq2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    _run(eq2, "R_S = (1/|R|) sum_k H_k,     in [0, 1]"
-              "                              (2)", 10)
+    equation(doc, [
+        _sub(_mt("R"), _mt("S")), _mt(" = ", nor=True),
+        _frac(_mt("1", nor=True), _mt("|R|", nor=True)),
+        _sum(_mt("k"), _sub(_mt("H"), _mt("k"))),
+        _mt("   ,    ", nor=True), _mt(_ELEM + " [0, 1]", nor=True),
+    ], "2")
     body(doc, "R_S near 1 means the frame stays redundant under any single loss; "
         "near 0 means it does not. A determinacy bound ties this to redundancy: a "
         "statically determinate truss has R_S = 0, because removing any bar forms "
@@ -454,25 +528,24 @@ def build():
 
     # ---- Conclusions ----
     section(doc, "Conclusions")
-    for i, c in enumerate([
-        "The Entropy Robustness Index R_S provides a calibration-free, "
-        "single-linear-solve screening of steel-frame columns for "
-        "progressive-collapse vulnerability, with its per-column entropy drop "
-        "dH_k ranking columns by how much their loss localizes the load path.",
-        "On the published Vogel (1985) benchmark building the entropy column "
-        f"ranking agrees with a code-style alternate-load-path severity at "
-        f"Spearman rho = {alp.spearman_rho:.2f}, and the two most critical "
-        "columns coincide, so R_S can triage which columns deserve the expensive "
-        "nonlinear ALP analysis.",
-        "R_S supports design decisions: it ranks a fixed-base building as more "
-        f"robust than a pinned-base variant ({rs_fixed} vs {rs_pinned}) and "
-        "identifies the base columns whose loss the weaker design cannot survive.",
-        "The index measures load-path redundancy, not strength; it belongs "
-        "alongside capacity checks and ahead of nonlinear ALP analysis, within a "
-        "planar, linear-elastic, quasi-static envelope and with no early-warning "
-        "claim.",
-    ], start=1):
-        numbered(doc, i, c)
+    body(doc, "The Entropy Robustness Index R_S provides a calibration-free "
+        "screening of steel-frame columns for progressive-collapse vulnerability "
+        "from a single linear analysis, ranking columns by the per-column entropy "
+        "drop dH_k according to how much their loss localizes the load path. On "
+        "the published Vogel (1985) benchmark building this ranking agrees with a "
+        "code-style alternate-load-path severity at a Spearman correlation of "
+        f"{alp.spearman_rho:.2f}, with the two most critical columns coinciding, "
+        "so R_S can triage which columns deserve the expensive nonlinear ALP "
+        "analysis. The index also supports design decisions: it ranks a "
+        f"fixed-base building as more robust than a pinned-base variant "
+        f"({rs_fixed} against {rs_pinned}) and identifies the base columns whose "
+        "loss the weaker design cannot survive.")
+    body(doc, "R_S measures load-path redundancy rather than strength, so it "
+        "belongs alongside the capacity checks and ahead of the nonlinear "
+        "alternate-path analysis, within a planar, linear-elastic, quasi-static "
+        "envelope and with no claim of early warning. Used this way it turns a "
+        "single linear solve into a rational way to concentrate progressive-"
+        "collapse assessment on the columns where it matters.")
 
     label_body(doc, "Author contributions:",
         "F.C.B. conceived the method, implemented the software, performed the "
