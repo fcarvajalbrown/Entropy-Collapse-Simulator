@@ -36,7 +36,7 @@ from docx.oxml.ns import qn
 from results import compute_paper2_results  # single source of computed numbers
 
 FIG = os.path.join(MANU, "figures")
-OUT = os.path.join(HERE, "Carvajal_RDLC_screening_manuscript.docx")
+OUT = os.path.join(HERE, "Carvajal_RDLC_manuscript.docx")
 FONT = "Times New Roman"
 
 
