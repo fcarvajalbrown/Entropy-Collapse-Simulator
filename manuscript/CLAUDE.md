@@ -31,16 +31,16 @@ it with the `has_style` / `P` helpers, resolving paths relative to `HERE`.
 
 ## Submission status
 
-Last updated: 2026-07-05.
+Last updated: 2026-08-29.
 
 Exclusivity: every journal submission affirms the paper is not under review
 elsewhere. It is the same paper each time, so only ONE journal may hold it at a
 time. Submit sequentially, never in parallel.
 
-| Journal | Folder | Status (2026-07-05) |
+| Journal | Folder | Status (2026-08-29) |
 |---|---|---|
-| LAJSS (Latin American Journal of Solids and Structures) | `LAJSS/` | No longer under consideration (per author, 2026-07-05); exclusivity now clear for paper 2. |
-| Ingenieria e Investigacion (UNAL, Colombia) | `IngInv/` | Submission 128239 acknowledged; exact status unconfirmed - verify it is closed/withdrawn so it does not overlap LAJSS. |
+| LAJSS (Latin American Journal of Solids and Structures) | `LAJSS/` | ALIVE. Submission 9169 went to peer review and returned "revisions required" on 2026-08-29. The 2026-07-05 "no longer under consideration" entry was wrong. See the revision block below. |
+| Ingenieria e Investigacion (UNAL, Colombia) | `IngInv/` | Submission 128239 acknowledged; exact status unconfirmed - verify it is closed/withdrawn, because LAJSS now demonstrably holds the same paper. |
 | Applied and Computational Mechanics (Univ. West Bohemia, Czech) | `ACM/` | DESK-REJECTED - editorial priority screen, no peer review, no actionable critique. Dead; build kept for reference. |
 | Revista de la Construccion / RCUC (PUC Chile) | `RDLC/` | DESK-REJECTED - discipline / novelty / general-significance screen; explicitly "not necessarily a reflection of the quality of your research." No peer review. Dead. |
 | Ingeniare (Chile) | `Ingeniare/` | Staged in repo, not submitted. |
@@ -49,6 +49,34 @@ Notes on the two rejections: both were editorial desk-rejects on venue fit
 (priority; discipline / novelty / significance), not peer review. Neither
 returned reviewer comments, so there is nothing substantive to revise off them
 before the next submission.
+
+## LAJSS revision round (submission 9169)
+
+Paper 1 is alive at LAJSS and is the only live peer-reviewed track. Editor:
+Pablo Munoz (section editor PABLO ANDRES MUNOZ ROJAS). Dashboard:
+`https://lajss.org/LAJSS/dashboard/mySubmissions?workflowSubmissionId=9169`.
+
+Sequence: "Send to Review", then a decision requiring revisions received
+2026-08-29. LAJSS allows 21 days, so the resubmission deadline as stated is
+**2026-09-19**.
+
+What LAJSS asks for at resubmission:
+- A revised manuscript with every change in a different font colour.
+- A separate cover letter stating all changes made, answering the reviewers
+  point by point.
+
+**Blocker as of 2026-08-29: the reviewer reports are not visible to the author.**
+Nothing appears under the Review stage, the reviewer attachments, or the
+discussion threads. A discussion thread was opened to Pablo Munoz asking him to
+release or attach the reports, and asking that the 21-day window run from the
+date they are received rather than from the decision letter. Nothing substantive
+can be revised until they arrive; do not guess at reviewer concerns.
+
+**Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
+Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
+Entropy Robustness Index ...", so the error is in the submission metadata only.
+Fix it at Publication > Title & Abstract, and note the correction in the cover
+letter so the record and the manuscript do not diverge.
 
 ## Paper 2 venue plan (construction-journal extension)
 
@@ -80,6 +108,11 @@ base-fixity design-variant demo (`analysis/design_variants`). Figures
 `fig_alp_agreement.png` and `fig_design_variants.png`. Conclusions are prose and
 Equations (1)-(2) are native Word (OMML) objects.
 
+**Correction (2026-08-29):** the premise below turned out to be false. Paper 1
+was still at LAJSS and has since come back from peer review with revisions
+required. This does not affect paper 2's eligibility (different manuscript), but
+the "LAJSS is clear" reasoning recorded on 2026-07-05 was wrong.
+
 **Submission status (2026-07-05):** Felipe confirms paper 1 is no longer under
 consideration at LAJSS, so the single-venue exclusivity block is clear. Paper 2
 is being submitted to Revista de la Construccion. Comments-for-the-Editor text
@@ -89,7 +122,9 @@ venue" contingency above still stands.
 
 ## Per-journal specifics
 
-- **LAJSS** — `LAJSS/build_docx_lajss.py`. Submitted; in peer review.
+- **LAJSS** — `LAJSS/build_docx_lajss.py`. Peer-reviewed, revisions required
+  2026-08-29; see the LAJSS revision round section above for the deadline, the
+  coloured-text requirement, and the blocker on the missing reports.
 - **IngInv** — `IngInv/build_docx_ingeinv.py`, template `IngInv/Template_IngInv.docx`.
   Bilingual EN body plus ES titulo / resumen / palabras clave; numbered `[n]`
   IEEE references; CRediT, conflicts, and data-availability statements.
