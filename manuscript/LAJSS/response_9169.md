@@ -122,3 +122,18 @@ time from left to right. Each adds one bar and no joint, so the degree of static
 indeterminacy, DSI = m + r − 2j, equals the number of counter-diagonals added,
 from 0 to 6. The counter-diagonals are members 25 to 30 in the new Figure 1(c),
 and Table 3 has a new column listing which of them are present at each DSI.
+
+## Comment 9
+
+> Conclusions should be self-contained: which benchmarks? "R_S separates the benchmarks (0.00, 0.72, 0.79)"
+
+Agreed. The Conclusion has been rewritten so that it can be read on its own.
+It now names the structure behind each number: R_S is 0.00 for the single-span
+beam, which has no alternate load path, 0.72 for the 2-bay 3-story steel moment
+frame and 0.79 for the 6-panel X-braced truss bridge; on the truss it rises from
+0.00 to 0.79 as the degree of static indeterminacy goes from 0 to 6. The
+Spearman correlations are now attributed to the moment frame (-0.34) and the
+truss (+0.54). The criteria comparison is also stated more precisely than
+before: the entropy criterion fires at the same load factor as the energy
+criterion (8.80) and one load step after the DCR criterion (8.50), whereas the
+original text said it fired at the same load as both.
