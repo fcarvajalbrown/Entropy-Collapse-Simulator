@@ -76,10 +76,12 @@ the current structure is analysed and four quantities are recorded; members
 whose combined stress reaches the yield stress are removed before the next
 step; and each criterion fires at the first step where its quantity crosses its
 limit. The limits are now given: a translation of 0.05 m, a DCR of 1.0, a
-compliance of three times the intact value, and an entropy drop more than three
-standard deviations below the mean of the earlier drops. The text also now says
-plainly that the entropy test does use a cutoff, but a statistical one that does
-not depend on the structure.
+compliance of three times the intact value, and a drop in the entropy of more
+than a fixed numerical floor of 10^-3 nats. The text also now says plainly that
+the entropy test uses this fixed floor, which does not depend on the structure,
+and that a z-score rule with a cutoff of three standard deviations applies only
+when the earlier drops vary by more than the floor, which does not happen before
+the first failure in a linear-elastic analysis.
 
 ## Comment 6
 
@@ -137,3 +139,16 @@ truss (+0.54). The criteria comparison is also stated more precisely than
 before: the entropy criterion fires at the same load factor as the energy
 criterion (8.80) and one load step after the DCR criterion (8.50), whereas the
 original text said it fired at the same load as both.
+
+## Other corrections
+
+Beyond the reviewer's comments, three errors were corrected. The author
+affiliation now reads "M.Sc. in Numerical Simulation in Engineering
+(Universidad Politécnica de Madrid, Spain), Independent Researcher, Santiago
+(Chile)". Section 3.1 wrongly said the truss had the sharper worst-case
+localization; Table 2 shows it is the moment frame (H_k = 0.390 against 0.737),
+and the sentence now says so. The Introduction wrongly said R_S, like the
+redundancy matrix, is load-independent; R_S depends on the load pattern and is
+invariant only to load scaling, and the sentence now says so. The record title
+in the submission system reads "A Entropy"; the manuscript title is "An
+Entropy".
