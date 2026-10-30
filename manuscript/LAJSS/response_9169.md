@@ -52,3 +52,15 @@ symbol. Inline mathematics (the entropy drop ΔH_k, the compliance U/λ², the
 worst case min_k H_k, the stiffness system Ku = F and the compliance importance
 I_k) is now written with proper symbols, and I_k is defined in full in
 Section 3.3.
+
+## Comment 4
+
+> What is an active member? In the load or the strain energy on a member is zero, is this member active or not?
+
+Section 2.1 now defines it. A member is active if it is still part of the
+structure: it has neither been removed in the alternate-load-path procedure nor
+dropped by the failure criterion during the incremental analysis. A member that
+carries no load is still active. Its strain energy and its share p_i are zero,
+it adds nothing to S under the convention 0 ln 0 = 0, and it still counts in N,
+so it lowers the normalized entropy H. This is how the index was computed for
+every result in the paper, so no result changes.

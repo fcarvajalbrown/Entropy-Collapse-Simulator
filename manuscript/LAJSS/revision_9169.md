@@ -26,7 +26,7 @@ Two caveats belong here at the start. Strain-energy entropy is itself old, so wh
 
 ### 2.1 strain-energy entropy
 
-At a given load, let U_i be the elastic strain energy in active member i, with N active members in all. {+Equations (1) to (3)+} give the normalized energy distribution and its Shannon entropy.
+At a given load, let U_i be the elastic strain energy in active member i, with N active members in all. {+A member is active if it is still part of the structure: it has neither been removed in the alternate-load-path procedure nor dropped by the failure criterion during the incremental analysis. A member that carries no load is still active. Its strain energy U_i and share p_i are zero, it adds nothing to S under the convention 0 ln 0 = 0, and it still counts in N, so it lowers H.+} {+Equations (1) to (3)+} give the normalized energy distribution and its Shannon entropy.
 
 {+$$p_i = \frac{U_i}{\sum_{j=1}^{N} U_j} \qquad (1)$$+}
 
