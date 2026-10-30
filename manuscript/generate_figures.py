@@ -98,7 +98,7 @@ def fig_robustness_ranking():
         ax.set_xticks(range(len(ids)))
         ax.set_xticklabels(ids, fontsize=6, rotation=90)
         ax.set_xlabel("Member id (ranked)")
-        ax.set_ylabel("Entropy drop on removal dH_k")
+        ax.set_ylabel(r"Entropy drop on removal $\Delta H_k$")
         ax.set_title(f"{title}: R_S = {rep.robustness_index:.3f}")
     fig.suptitle("Entropy-based member criticality (alternate load path)")
     fig.tight_layout()
@@ -144,7 +144,7 @@ def fig_importance_scatter():
             a != float("inf") for a in x) else ([], [])
         ax.scatter(xs, ys, color="darkorange", s=18)
         ax.set_xlabel("Compliance importance I_k = dU/U_0")
-        ax.set_ylabel("Entropy drop dH_k")
+        ax.set_ylabel(r"Entropy drop $\Delta H_k$")
         ax.set_title(f"{title}: Spearman rho = {c.spearman_rho:+.2f}")
     fig.suptitle("Entropy criticality vs compliance importance (they are not the same)")
     fig.tight_layout()
@@ -163,7 +163,7 @@ def fig_importance_ensemble():
     ax.axhline(0, color="black", lw=0.8)
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=40, ha="right", fontsize=8)
-    ax.set_ylabel("Spearman rho (dH_k vs I_k)")
+    ax.set_ylabel(r"Spearman rho ($\Delta H_k$ vs I_k)")
     ax.set_ylim(-1, 1)
     ax.set_title("Entropy criticality vs compliance importance across frames "
                  "(rho far from 1, often negative)")
@@ -349,14 +349,28 @@ def fig_benchmark_geometry():
     plt.close(fig)
 
 
+FIGURES = {
+    "benchmark_geometry": lambda: fig_benchmark_geometry(),
+    "entropy_trajectory": lambda: fig_entropy_trajectory(),
+    "criteria_comparison": lambda: fig_criteria_comparison(),
+    "robustness_ranking": lambda: fig_robustness_ranking(),
+    "redundancy_sweep": lambda: fig_redundancy_sweep(),
+    "importance_scatter": lambda: fig_importance_scatter(),
+    "importance_ensemble": lambda: fig_importance_ensemble(),
+    "alp_agreement": lambda: fig_alp_agreement(),
+    "design_variants": lambda: fig_design_variants(),
+}
+
+
 if __name__ == "__main__":
-    fig_benchmark_geometry()
-    fig_entropy_trajectory()
-    fig_criteria_comparison()
-    fig_robustness_ranking()
-    fig_redundancy_sweep()
-    fig_importance_scatter()
-    fig_importance_ensemble()
-    fig_alp_agreement()
-    fig_design_variants()
-    print(f"All manuscript figures written to {FIG_DIR}")
+    import argparse
+    parser = argparse.ArgumentParser(description="Regenerate manuscript figures from live runs.")
+    parser.add_argument("names", nargs="*", help="figures to render, from: " + ", ".join(FIGURES) + " (default: all)")
+    names = parser.parse_args().names or list(FIGURES)
+    unknown = [n for n in names if n not in FIGURES]
+    if unknown:
+        parser.error("unknown figure(s): " + ", ".join(unknown))
+    for name in names:
+        FIGURES[name]()
+        print(f"Wrote fig_{name}.png")
+    print(f"Figures written to {FIG_DIR}")
