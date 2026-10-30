@@ -60,7 +60,7 @@ An R_S near 1 means the frame stays redundant under any single loss; near 0 mean
 
 Verification runs on three tiers (Table 1). The first two confirm the {+finite-element model+}: {+closed-form beam solutions are reproduced+}, and an independent {+finite-element program with three degrees of freedom per node, written from scratch,+} reproduces the redundant frames, including a larger 3-bay 6-story frame (28 nodes, 42 members). {+Every displacement and strain-energy error in Table 1 is below 4 × 10^-13 %.+} The third tier checks the quantities R_S actually depends on: the per-member distribution, the post-removal ALP states, the failure criterion, and the stability test all agree with independent calculations. The Ziemian and Ziemian (2021) steel benchmark frames are a useful external reference, but their published results are second-order (P-Delta) and sit outside what a first-order {+analysis+} can reproduce, so I cite them for future checks rather than match them here.
 
-Table 1 Verification errors relative to reference (computed by benchmark.py).
+Table 1 {+Verification of the finite-element model. Each error is the relative difference |computed − reference| / |reference| × 100 %. The reference is the closed-form solution for the analytical cases and an independent finite-element program for the independent cases. An entry of 0 means the computed and reference values are identical. The index checks compare the quantities R_S depends on with independent calculations; all seven pass.+}
 
 | Tier | Case | Displacement err | Strain-energy err |
 |---|---|---|---|
@@ -69,7 +69,7 @@ Table 1 Verification errors relative to reference (computed by benchmark.py).
 | Analytical | Cantilever beam | {+0+} | {+1.4 × 10^-14 %+} |
 | Independent | 2D Moment Frame (2-bay, 3-story) | {+1.9 × 10^-14 %+} | {+1.8 × 10^-14 %+} |
 | Independent | 2D Moment Frame (3-bay, 6-story) | {+1.5 × 10^-13 %+} | {+1.2 × 10^-13 %+} |
-| Independent | Redundant truss bridge (6-panel, 3 | {+3.1 × 10^-13 %+} | {+3.7 × 10^-13 %+} |
+| Independent | {+Redundant truss bridge (6-panel, 30 m, X-braced)+} | {+3.1 × 10^-13 %+} | {+3.7 × 10^-13 %+} |
 | Index checks | distribution / ALP / failure / stability (7/7 pass) | - | - |
 
 ## 3 RESULTS

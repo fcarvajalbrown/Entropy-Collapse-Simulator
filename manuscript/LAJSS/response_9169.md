@@ -80,3 +80,16 @@ compliance of three times the intact value, and an entropy drop more than three
 standard deviations below the mean of the earlier drops. The text also now says
 plainly that the entropy test does use a cutoff, but a statistical one that does
 not depend on the structure.
+
+## Comment 6
+
+> What are all the zeros in Table 1?
+
+They were verification errors printed to four decimal places, so values of the
+order of 10^-13 % appeared as 0.0000%, and the table did not say what they
+measured. Table 1 now gives the measured values (see the reply to Comment 2a),
+and its caption defines each entry: the relative difference between the
+computed and reference values, in percent, where the reference is the
+closed-form solution for the analytical cases and an independent finite-element
+program for the independent cases. An entry of 0 now means the two values are
+identical. The truncated case name of the truss has also been restored.

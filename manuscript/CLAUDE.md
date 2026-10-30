@@ -87,6 +87,11 @@ stay in Word. `LAJSS/LAJSS - Template.docx` comes from
 `{+ +}` marks first; `build_docx_lajss.py` is ported only after all nine
 comments are answered.
 
+**Build port: keep Vogel out of Table 1.** `results.py` now returns the
+Vogel (1985) frame among the independent cases (added for paper 2).
+`build_docx_lajss.py` fills Table 1 from every independent case, so the port
+must filter Vogel out and must stop truncating case names (`[:34]`).
+
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
 Entropy Robustness Index ...", so the error is in the submission metadata only.
