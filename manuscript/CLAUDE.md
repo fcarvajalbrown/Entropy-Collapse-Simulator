@@ -107,10 +107,14 @@ with "no alternate load path" in the paper and in code
 rated it Major Revision; Felipe chose to fix only its confirmed factual errors
 (done) and resubmit, leaving M1-M9 for later. Build port done (above).
 Figure axis labels now read Delta H_k (Figures 2, 4, 5; only those were
-rerendered). Next, in order: build the
-PDF LAJSS requires; humanizer and
-felipe-outward-writing pass on the cover letter; fix the OJS title; tell Pablo
-Munoz, who granted no extension in writing; upload.
+rerendered). PDF built: `LAJSS/Carvajal_LAJSS_9169_revised.pdf`, 9 pages,
+converted headless with `tools/docx_to_pdf/` (ONLYOFFICE `x2t.exe`; Felipe
+uses ONLYOFFICE, there is no Word or LibreOffice on this machine). Display
+equations are borderless two-cell tables so they render at display size;
+the checker reads them back as paragraphs. Felipe has yet to review the PDF.
+Next, in order: Felipe's PDF review; humanizer and felipe-outward-writing pass
+on the cover letter; note to Pablo Munoz, who granted no extension in
+writing; fix the OJS title; upload.
 
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
