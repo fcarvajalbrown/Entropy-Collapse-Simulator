@@ -8,7 +8,7 @@ Instituto Virginio Gómez, Chillán, Chile. Email: fcarvajalbrown@gmail.com
 
 ## Abstract
 
-Structural robustness rarely reduces to a single number. Engineers judge it with displacement, resistance, or energy criteria, and each needs a limit calibrated to the structure at hand. This paper proposes the Entropy Robustness Index R_S, the Shannon entropy of the elastic strain-energy distribution averaged over the notional member removals of the alternate-load-path method. R_S sits near 1 when a frame keeps sharing energy evenly after any single loss, and falls toward 0 when a loss localizes the energy or forms a mechanism. Implemented {+in+} a first-order linear-elastic {+finite-element model of planar frames with Euler-Bernoulli beam elements,+} R_S reads 0.00, 0.72, and 0.79 for a non-redundant beam, a redundant moment frame, and a redundant truss. It rises monotonically with the degree of static indeterminacy, and its member ranking is not a re-encoding of compliance importance. On one incremental analysis the entropy criterion reaches the collapse onset at the same load as the resistance and energy criteria, with no calibrated threshold.
+Structural robustness rarely reduces to a single number. Engineers judge it with displacement, resistance, or energy criteria, and each needs a limit calibrated to the structure at hand. This paper proposes the Entropy Robustness Index R_S, the Shannon entropy of the elastic strain-energy distribution averaged over the notional member removals of the alternate-load-path method. R_S sits near 1 when a frame keeps sharing energy evenly after any single loss, and falls toward 0 when a loss localizes the energy or forms a mechanism. Implemented {+in+} a first-order linear-elastic {+finite-element model of planar frames with Euler-Bernoulli beam elements,+} R_S reads 0.00, 0.72, and 0.79 for a {+single-span beam with no alternate load path+}, a redundant moment frame, and a redundant truss. It rises monotonically with the degree of static indeterminacy, and its member ranking is not a re-encoding of compliance importance. On one incremental analysis the entropy criterion reaches the collapse onset at the same load as the resistance and energy criteria, with no calibrated threshold.
 
 ## Keywords
 
@@ -76,17 +76,17 @@ Table 1 {+Verification of the finite-element model. Each error is the relative d
 
 ### 3.1 robustness index
 
-Three frames are analysed: a two-span beam with no redundancy, a 2-bay 3-story steel moment frame, and a 6-panel X-braced truss bridge. Table 2 collects the index for each.
+Three frames are analysed: a {+single-span beam pinned at both ends and modelled with two elements, which has no alternate load path+}, a 2-bay 3-story steel moment frame, and a 6-panel X-braced truss bridge. Table 2 collects the index for each.
 
 Table 2 Entropy Robustness Index of the benchmark frames (computed by entropy/robustness.py).
 
 | Frame | Intact H0 | R_S | Worst-case H_k | Mechanism fraction |
 |---|---|---|---|---|
-| Two-span beam | 1.000 | 0.000 | 0.000 | 100% |
+| {+Single-span beam+} | 1.000 | 0.000 | 0.000 | 100% |
 | Moment frame (2-bay, 3-story) | 0.712 | 0.719 | 0.390 | 0% |
 | Truss bridge (X-braced) | 0.791 | 0.786 | 0.737 | 0% |
 
-The values fall where intuition says they should. The two-span beam has no second path: lose either member and what remains is a mechanism, so R_S = 0. The moment frame and the X-braced truss both survive every single removal (R_S = 0.72 and 0.79), but the worst single loss in the truss pulls its surviving distribution down to H_k = 0.737, a sharper localization than anything in the moment frame. The larger 3-bay 6-story frame behaves the same way (R_S = 0.78), so the index is not an artefact of small models.
+The values fall where intuition says they should. The {+single-span+} beam has no second path: lose either member and what remains is a mechanism, so R_S = 0. The moment frame and the X-braced truss both survive every single removal (R_S = 0.72 and 0.79), but the worst single loss in the truss pulls its surviving distribution down to H_k = 0.737, a sharper localization than anything in the moment frame. The larger 3-bay 6-story frame behaves the same way (R_S = 0.78), so the index is not an artefact of small models.
 
 [figure]
 
