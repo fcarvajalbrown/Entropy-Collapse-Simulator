@@ -85,26 +85,29 @@ stay in Word. `LAJSS/LAJSS - Template.docx` comes from
 `{+ +}` marks first; `build_docx_lajss.py` is ported only after all nine
 comments are answered.
 
-**Build port: keep Vogel out of Table 1.** `results.py` now returns the
-Vogel (1985) frame among the independent cases (added for paper 2).
-`build_docx_lajss.py` fills Table 1 from every independent case, so the port
-must filter Vogel out and must stop truncating case names (`[:34]`).
+**Build port (done).** `build_docx_lajss.py` now parses `revision_9169.md`
+and writes `LAJSS/Carvajal_LAJSS_9169_revised.docx`; the original submission
+`Carvajal_LAJSS_manuscript.docx` is kept untouched. `{+ +}` becomes red runs,
+`$$...$$` and `$...$` become native Word equations through
+`tools/latex_to_omml/` (Office is no longer installed, so MML2OMML.XSL is
+gone), and R_S-style symbols get real sub/superscripts. The build fails if
+Tables 1-4 or the key numbers in the text disagree with `compute_results()`
+(Vogel is filtered out of Table 1) or the abstract passes 1140 characters
+(it is 1127). `tools/check_docx_against_md/` confirms the .docx matches the
+md paragraph by paragraph, marks included: 76 paragraphs, 25 table rows, 0
+problems. To change the paper, edit the md and rebuild.
 
-**Beam renamed (settled).** The paper now calls the `frame_2d_simple` case a
-"single-span beam" with "no alternate load path": it is one 10 m span pinned
-at both ends (axially indeterminate to degree 1), so "two-span" and
-"non-redundant" were both wrong. The code's `name="Two-span beam"` still
-needs the same rename in the build port.
+**Beam renamed (done).** The `frame_2d_simple` case is a "single-span beam"
+with "no alternate load path" in the paper and in code
+(`name="Single-span beam"`, test, README, root CLAUDE.md).
 
 **State and next steps.** All nine reviewer comments are answered in
 `LAJSS/revision_9169.md` (changes marked `{+ +}`) with replies in
 `LAJSS/response_9169.md`. An internal review (`LAJSS/internal_review_9169.md`)
 rated it Major Revision; Felipe chose to fix only its confirmed factual errors
-(done) and resubmit, leaving M1-M9 for later. Next, in order: port
-`build_docx_lajss.py` from the working copy (`{+ +}` to red runs, `$$...$$` to
-Word equations, new Figure 1 and renumbering, Table 1 values and full names
-without Vogel, author block, figure axis labels dH_k to Delta H_k, beam name
-in code); build the .docx and the PDF LAJSS requires; humanizer and
+(done) and resubmit, leaving M1-M9 for later. Build port done (above).
+Next, in order: figure axis labels dH_k to Delta H_k; build the .docx and the
+PDF LAJSS requires; humanizer and
 felipe-outward-writing pass on the cover letter; fix the OJS title; tell Pablo
 Munoz, who granted no extension in writing; upload.
 
