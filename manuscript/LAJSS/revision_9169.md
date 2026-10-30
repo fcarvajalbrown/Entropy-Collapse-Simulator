@@ -98,19 +98,19 @@ The values fall where intuition says they should. The {+single-span+} beam has n
 
 ### 3.2 R_S tracks redundancy
 
-To test whether R_S measures redundancy rather than merely re-packaging stiffness, I sweep the truss bridge from its statically determinate single-diagonal form to its fully X-braced form, adding one counter-diagonal at a time. The degree of static indeterminacy is then known exactly. R_S rises monotonically from 0.00 at zero redundancy to 0.79 at six, while the fraction of single-loss mechanisms falls from 100% to 0% ({+Figure 3+}, Table 3). The determinate case gives exactly R_S = 0, as the determinacy bound requires.
+To test whether R_S measures redundancy rather than merely re-packaging stiffness, I sweep the truss bridge from its statically determinate single-diagonal form to its fully X-braced form. {+The sweep starts from a plain 6-panel Pratt truss with m = 25 bars (6 bottom-chord, 6 top-chord, 7 vertical and 6 diagonal), j = 14 joints and r = 3 support reactions. Since m + r = 25 + 3 = 28 = 2j, it is statically determinate. A counter-diagonal, running from bottom joint i to top joint i + 1, is then added to one panel at a time, from left to right: these are members 25 to 30 in Figure 1(c). Each adds one bar and no joint, so the degree of static indeterminacy DSI = m + r − 2j equals the number of counter-diagonals added, from 0 to 6.+} R_S rises monotonically from 0.00 at zero redundancy to 0.79 at six, while the fraction of single-loss mechanisms falls from 100% to 0% ({+Figure 3+}, Table 3). The determinate case gives exactly R_S = 0, as the determinacy bound requires.
 
 Table 3 R_S versus degree of static indeterminacy (DSI) for the truss bridge (computed by analysis/parametric.py).
 
-| DSI | Members | R_S | Mechanism fraction |
-|---|---|---|---|
-| 0 | 25 | 0.000 | 100% |
-| 1 | 26 | 0.194 | 77% |
-| 2 | 27 | 0.340 | 59% |
-| 3 | 28 | 0.470 | 43% |
-| 4 | 29 | 0.583 | 28% |
-| 5 | 30 | 0.680 | 13% |
-| 6 | 31 | 0.786 | 0% |
+| DSI | {+Counter-diagonals+} | Members | R_S | Mechanism fraction |
+|---|---|---|---|---|
+| 0 | {+none+} | 25 | 0.000 | 100% |
+| 1 | {+25+} | 26 | 0.194 | 77% |
+| 2 | {+25-26+} | 27 | 0.340 | 59% |
+| 3 | {+25-27+} | 28 | 0.470 | 43% |
+| 4 | {+25-28+} | 29 | 0.583 | 28% |
+| 5 | {+25-29+} | 30 | 0.680 | 13% |
+| 6 | {+25-30+} | 31 | 0.786 | 0% |
 
 [figure]
 

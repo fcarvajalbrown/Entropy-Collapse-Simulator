@@ -105,7 +105,20 @@ supports, loads and the number of every member. The member numbers are the
 ones on the horizontal axis of the member-criticality figure (former Figure 1,
 now Figure 2), so each bar can be located on the structure. The figure is drawn
 directly from the model definitions used in the analysis. The remaining figures
-have been renumbered accordingly. While preparing it we also corrected the name
+have been renumbered accordingly. While preparing it I also corrected the name
 of the first benchmark: it is a single span pinned at both ends and modelled
 with two elements, not a two-span beam, and it is now described as a beam with
 no alternate load path rather than as non-redundant.
+
+## Comment 8
+
+> Especially for the analyzed truss, I have no idea how you are achieving redundancy going from 1 to 6!
+
+Section 3.2 now explains it step by step. The sweep starts from a plain 6-panel
+Pratt truss with 25 bars, 14 joints and 3 support reactions; since
+m + r = 25 + 3 = 28 = 2j, it is statically determinate. A counter-diagonal,
+running from bottom joint i to top joint i + 1, is then added to one panel at a
+time from left to right. Each adds one bar and no joint, so the degree of static
+indeterminacy, DSI = m + r − 2j, equals the number of counter-diagonals added,
+from 0 to 6. The counter-diagonals are members 25 to 30 in the new Figure 1(c),
+and Table 3 has a new column listing which of them are present at each DSI.
