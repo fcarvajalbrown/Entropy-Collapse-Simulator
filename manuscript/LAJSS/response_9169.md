@@ -14,7 +14,7 @@ manuscript now describes the analysis as a first-order linear-elastic
 finite-element model of planar frames with Euler-Bernoulli beam elements
 (Abstract, Section 2.4), and the independent check as a finite-element program
 with three degrees of freedom per node (Section 2.4). The same wording replaces
-"solver" in Section 2.4 and in the Conclusion.
+"solver" elsewhere in Section 2.4.
 
 ## Comment 2a
 
@@ -26,3 +26,16 @@ energies, so an error in those energies is an error in the index. Section 2.4
 now opens by stating this. The phrase has been removed from the Abstract and the
 Conclusion, and Table 1 now gives the measured errors instead of "0.0000%":
 every displacement and strain-energy error is below 4 × 10^-13 %.
+
+## Comment 2b
+
+> What is this? "And I make no claim of early warning."
+
+The sentence was unclear and has been rewritten (Introduction, last
+paragraph). It now states what an early-warning claim would be, that a falling
+entropy forecasts collapse, and that the paper does not make it. The reason is
+the paper's own result: in the incremental analysis of Section 3.4 the entropy
+criterion fires at the same load as the energy criterion and one load step after
+the DCR criterion (Table 4), never before them. The entropy drop is therefore
+presented as a marker of load-path localization when it occurs. The sentence on
+feedback-amplified systems, which carried no reference, has been removed.

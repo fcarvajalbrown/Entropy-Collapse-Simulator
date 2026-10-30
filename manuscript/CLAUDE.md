@@ -73,6 +73,12 @@ extension has been granted in writing. As of 2026-10-30 the submission shows as
 active with no deadline on the dashboard, and an "action required" notice
 arrived that day. Ask Pablo for the time needed before resubmitting late.
 
+**Open: abstract overstates the criteria result.** The Abstract says the
+entropy criterion "reaches the collapse onset at the same load as the
+resistance and energy criteria". Table 4 has DCR at 8.50 and entropy and
+energy at 8.80, one load step apart, and Section 3.4 says entropy lags DCR.
+Settle the wording with Felipe before the resubmission.
+
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
 Entropy Robustness Index ...", so the error is in the submission metadata only.
