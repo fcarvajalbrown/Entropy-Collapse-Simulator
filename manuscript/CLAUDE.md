@@ -106,7 +106,8 @@ with "no alternate load path" in the paper and in code
 `LAJSS/response_9169.md`. An internal review (`LAJSS/internal_review_9169.md`)
 rated it Major Revision; Felipe chose to fix only its confirmed factual errors
 (done) and resubmit, leaving M1-M9 for later. Build port done (above).
-Next, in order: figure axis labels dH_k to Delta H_k; build the .docx and the
+Figure axis labels now read Delta H_k (Figures 2, 4, 5; only those were
+rerendered). Next, in order: build the
 PDF LAJSS requires; humanizer and
 felipe-outward-writing pass on the cover letter; fix the OJS title; tell Pablo
 Munoz, who granted no extension in writing; upload.
