@@ -16,7 +16,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from structure.frames import frame_building_2d, frame_pratt_bridge, frame_vogel_six_storey
+from matplotlib.patches import Polygon, Rectangle, Circle
+
+from structure.frames import frame_2d_simple, frame_building_2d, frame_pratt_bridge, frame_vogel_six_storey
 from entropy import robustness as rb
 from analysis import criteria as C
 from analysis import importance as imp
@@ -234,7 +236,121 @@ def fig_design_variants():
     plt.close(fig)
 
 
+def _support_kind(node, frame):
+    fixed = set(node.fixed_dofs)
+    if not {0, 1} & fixed:
+        return None
+    has_frame_member = any(
+        m.kind == "frame" and node.id in (m.node_start, m.node_end) for m in frame.members
+    )
+    if {0, 1} <= fixed and 5 in fixed and has_frame_member:
+        return "fixed"
+    if {0, 1} <= fixed:
+        return "pin"
+    return "roller"
+
+
+def _draw_support(ax, x, y, kind, size):
+    if kind == "fixed":
+        ax.add_patch(Rectangle((x - size, y - size * 0.6), 2 * size, size * 0.6,
+                               facecolor="0.6", edgecolor="black", lw=0.8, zorder=1))
+        return
+    ax.add_patch(Polygon([(x, y), (x - size * 0.7, y - size), (x + size * 0.7, y - size)],
+                         closed=True, facecolor="white", edgecolor="black", lw=1.0, zorder=1))
+    if kind == "roller":
+        for dx in (-size * 0.35, size * 0.35):
+            ax.add_patch(Circle((x + dx, y - size * 1.2), size * 0.18,
+                                facecolor="white", edgecolor="black", lw=0.8, zorder=1))
+
+
+def _draw_structure(ax, frame, title, size, arrow, loads_below=False):
+    nodes = {n.id: n for n in frame.nodes}
+    xs = sorted({n.x for n in frame.nodes})
+    ys = sorted({n.y for n in frame.nodes})
+    for m in frame.members:
+        a, b = nodes[m.node_start], nodes[m.node_end]
+        ax.plot([a.x, b.x], [a.y, b.y], color="black", lw=1.6, zorder=2)
+        t = 0.5 if (a.x == b.x or a.y == b.y) else 0.3
+        ax.text(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y), str(m.id), fontsize=7,
+                ha="center", va="center", zorder=4,
+                bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="teal", lw=0.6))
+    for n in frame.nodes:
+        ax.plot(n.x, n.y, "o", color="black", ms=2.5, zorder=3)
+        kind = _support_kind(n, frame)
+        if kind:
+            _draw_support(ax, n.x, n.y, kind, size)
+    for load in frame.loads:
+        n = nodes[load.node_id]
+        column_above = any(
+            {m.node_start, m.node_end} == {n.id, o.id} and o.x == n.x and o.y > n.y
+            for m in frame.members for o in frame.nodes
+        )
+        label = f"{abs(load.magnitude) / 1000:.0f} kN"
+        if loads_below:
+            x = n.x
+            if _support_kind(n, frame):
+                x += -1.6 * size if n.x == xs[0] else 1.6 * size
+            tip, tail = (x, n.y - arrow), (x, n.y)
+            ax.text(x, tip[1] - 0.1 * arrow, label, fontsize=6.5, color="firebrick",
+                    ha="center", va="top", zorder=5)
+        else:
+            x = n.x + (0.3 if column_above else 0.0)
+            tip, tail = (x, n.y), (x, n.y + arrow)
+            ax.text(x + 0.1, tail[1], label, fontsize=6.5, color="firebrick",
+                    ha="left", va="bottom", zorder=5)
+        ax.annotate("", xy=tip, xytext=tail,
+                    arrowprops=dict(arrowstyle="-|>", color="firebrick", lw=1.0), zorder=5)
+        ax.plot([x, x], [n.y - 1.6 * arrow, n.y + 1.6 * arrow], alpha=0.0)
+    low = ys[0] - (2.0 * arrow if loads_below else 0.0)
+    y_dim = low - 2.4 * size
+    for x0, x1 in zip(xs, xs[1:]):
+        _dimension(ax, (x0, y_dim), (x1, y_dim), f"{x1 - x0:g} m", "below", size)
+    x_dim = xs[-1] + 2.6 * size
+    for y0, y1 in zip(ys, ys[1:]):
+        _dimension(ax, (x_dim, y0), (x_dim, y1), f"{y1 - y0:g} m", "right", size)
+    ax.set_title(title, fontsize=9, loc="left", pad=6)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+
+def _dimension(ax, start, end, label, side, size):
+    (x0, y0), (x1, y1) = start, end
+    ax.plot([x0, x1], [y0, y1], color="0.35", lw=0.7)
+    tick = 0.35 * size
+    for x, y in (start, end):
+        if side == "below":
+            ax.plot([x, x], [y - tick, y + tick], color="0.35", lw=0.7)
+        else:
+            ax.plot([x - tick, x + tick], [y, y], color="0.35", lw=0.7)
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    if side == "below":
+        ax.text(mx, my - tick, label, fontsize=7, color="0.25", ha="center", va="top")
+    else:
+        ax.text(mx + tick, my, label, fontsize=7, color="0.25", ha="left", va="center")
+
+
+def fig_benchmark_geometry():
+    fig = plt.figure(figsize=(12, 6.5))
+    grid = fig.add_gridspec(2, 2, height_ratios=[0.7, 3], width_ratios=[1, 2.2])
+    ax_beam = fig.add_subplot(grid[0, :])
+    ax_frame = fig.add_subplot(grid[1, 0])
+    ax_truss = fig.add_subplot(grid[1, 1])
+    _draw_structure(ax_beam, frame_2d_simple.build(),
+                    "(a) Single-span beam, pinned at both ends",
+                    size=0.3, arrow=0.8)
+    _draw_structure(ax_frame, frame_building_2d.build(),
+                    "(b) Moment frame, fixed bases",
+                    size=0.5, arrow=1.0)
+    _draw_structure(ax_truss, frame_pratt_bridge.build(),
+                    "(c) Truss bridge, pin (left) and roller (right)",
+                    size=0.5, arrow=1.0, loads_below=True)
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIG_DIR, "fig_benchmark_geometry.png"), dpi=200)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
+    fig_benchmark_geometry()
     fig_entropy_trajectory()
     fig_criteria_comparison()
     fig_robustness_ranking()
