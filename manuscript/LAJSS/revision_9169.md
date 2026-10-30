@@ -76,7 +76,11 @@ Table 1 {+Verification of the finite-element model. Each error is the relative d
 
 ### 3.1 robustness index
 
-Three frames are analysed: a {+single-span beam pinned at both ends and modelled with two elements, which has no alternate load path+}, a 2-bay 3-story steel moment frame, and a 6-panel X-braced truss bridge. Table 2 collects the index for each.
+Three frames are analysed: a {+single-span beam pinned at both ends and modelled with two elements, which has no alternate load path+}, a 2-bay 3-story steel moment frame, and a 6-panel X-braced truss bridge. Table 2 collects the index for each. {+Figure 1 shows their geometry, supports, loads and member numbering; the member numbers are those used in Figure 2.+}
+
+[figure: fig_benchmark_geometry.png]
+
+{+Figure 1 Geometry, supports, loads and member numbering of the three benchmark structures: (a) single-span beam, (b) moment frame, (c) truss bridge. Member numbers are boxed; dimensions in m, loads in kN.+}
 
 Table 2 Entropy Robustness Index of the benchmark frames (computed by entropy/robustness.py).
 
@@ -90,11 +94,11 @@ The values fall where intuition says they should. The {+single-span+} beam has n
 
 [figure]
 
-Figure 1 Entropy-based member criticality (entropy drop {+$\Delta H_k$+}) for the moment frame and the truss bridge.
+{+Figure 2+} Entropy-based member criticality (entropy drop {+$\Delta H_k$+}) for the moment frame and the truss bridge.
 
 ### 3.2 R_S tracks redundancy
 
-To test whether R_S measures redundancy rather than merely re-packaging stiffness, I sweep the truss bridge from its statically determinate single-diagonal form to its fully X-braced form, adding one counter-diagonal at a time. The degree of static indeterminacy is then known exactly. R_S rises monotonically from 0.00 at zero redundancy to 0.79 at six, while the fraction of single-loss mechanisms falls from 100% to 0% (Figure 2, Table 3). The determinate case gives exactly R_S = 0, as the determinacy bound requires.
+To test whether R_S measures redundancy rather than merely re-packaging stiffness, I sweep the truss bridge from its statically determinate single-diagonal form to its fully X-braced form, adding one counter-diagonal at a time. The degree of static indeterminacy is then known exactly. R_S rises monotonically from 0.00 at zero redundancy to 0.79 at six, while the fraction of single-loss mechanisms falls from 100% to 0% ({+Figure 3+}, Table 3). The determinate case gives exactly R_S = 0, as the determinacy bound requires.
 
 Table 3 R_S versus degree of static indeterminacy (DSI) for the truss bridge (computed by analysis/parametric.py).
 
@@ -110,29 +114,29 @@ Table 3 R_S versus degree of static indeterminacy (DSI) for the truss bridge (co
 
 [figure]
 
-Figure 2 R_S rises and the single-loss mechanism fraction falls as the truss gains redundancy.
+{+Figure 3+} R_S rises and the single-loss mechanism fraction falls as the truss gains redundancy.
 
 ### 3.3 the ranking is not compliance importance
 
-A natural objection is that {+$\Delta H_k$+} just restates the compliance increase caused by removing a member. The two are related but not the same. Comparing the entropy drop with the removal-based compliance importance {+$I_k = (U^{(k)} - U_0)/U_0$, where U_0 is the total strain energy of the intact frame and $U^{(k)}$ the total after member k is removed,+} gives a Spearman rank correlation of -0.34 for the moment frame and +0.54 for the truss (Figure 3). The correlation is frame-dependent and well below one; for the moment frame the two rankings are uncorrelated to weakly negative, so the member whose loss most softens the structure need not be the one whose loss most localizes the energy. I do not claim statistical significance at this sample size; the point is that dH_k is not a monotone re-encoding of compliance importance.
+A natural objection is that {+$\Delta H_k$+} just restates the compliance increase caused by removing a member. The two are related but not the same. Comparing the entropy drop with the removal-based compliance importance {+$I_k = (U^{(k)} - U_0)/U_0$, where U_0 is the total strain energy of the intact frame and $U^{(k)}$ the total after member k is removed,+} gives a Spearman rank correlation of -0.34 for the moment frame and +0.54 for the truss ({+Figure 4+}). The correlation is frame-dependent and well below one; for the moment frame the two rankings are uncorrelated to weakly negative, so the member whose loss most softens the structure need not be the one whose loss most localizes the energy. I do not claim statistical significance at this sample size; the point is that dH_k is not a monotone re-encoding of compliance importance.
 
 [figure]
 
-Figure 3 Entropy criticality {+$\Delta H_k$+} against compliance importance I_k; the two rankings differ (Spearman in titles).
+{+Figure 4+} Entropy criticality {+$\Delta H_k$+} against compliance importance I_k; the two rankings differ (Spearman in titles).
 
-To check that this is a property of the measure and not of one example, I repeat the comparison over an ensemble of 11 frames of varied size and type (moment frames from one to four bays and two to six stories, and redundant trusses). The rank correlation ranges from -0.56 to +0.87 with mean +0.17, and is negative for 6 of the 11 frames (Figure 4). The sign is systematic rather than random: every multi-bay moment frame gives a negative correlation, while small frames and trusses give positive ones. The entropy criticality is therefore consistently far from a monotone re-encoding of compliance importance, and for a whole class of structures it ranks members in essentially the opposite order.
+To check that this is a property of the measure and not of one example, I repeat the comparison over an ensemble of 11 frames of varied size and type (moment frames from one to four bays and two to six stories, and redundant trusses). The rank correlation ranges from -0.56 to +0.87 with mean +0.17, and is negative for 6 of the 11 frames ({+Figure 5+}). The sign is systematic rather than random: every multi-bay moment frame gives a negative correlation, while small frames and trusses give positive ones. The entropy criticality is therefore consistently far from a monotone re-encoding of compliance importance, and for a whole class of structures it ranks members in essentially the opposite order.
 
 [figure]
 
-Figure 4 Spearman correlation between entropy criticality and compliance importance across the frame ensemble; it stays well below 1 and is negative for the multi-bay moment frames.
+{+Figure 5+} Spearman correlation between entropy criticality and compliance importance across the frame ensemble; it stays well below 1 and is negative for the multi-bay moment frames.
 
 ### 3.4 progressive collapse and criteria comparison
 
-Loading the truss bridge step by step to failure shows the entropy behaving as expected. While the truss is intact the entropy holds flat, since it ignores load magnitude; at the first member failure it drops as the energy crowds into fewer members, then recovers part of the way as the remaining bars take up the load (Figure 5). Table 4 lists the load factor at which each criterion first fires.
+Loading the truss bridge step by step to failure shows the entropy behaving as expected. While the truss is intact the entropy holds flat, since it ignores load magnitude; at the first member failure it drops as the energy crowds into fewer members, then recovers part of the way as the remaining bars take up the load ({+Figure 6+}). Table 4 lists the load factor at which each criterion first fires.
 
 [figure]
 
-Figure 5 Normalized entropy and compliance versus load step for the truss bridge; both are flat until the first member failure, then respond together.
+{+Figure 6+} Normalized entropy and compliance versus load step for the truss bridge; both are flat until the first member failure, then respond together.
 
 Table 4 First-trigger load factor of the four criteria (truss bridge, load-step 0.3; computed by analysis/criteria.py).
 
@@ -145,7 +149,7 @@ Table 4 First-trigger load factor of the four criteria (truss bridge, load-step 
 
 [figure]
 
-Figure 6 First-trigger load factor for the four criteria; grey bars need a calibrated threshold, the entropy bar does not.
+{+Figure 7+} First-trigger load factor for the four criteria; grey bars need a calibrated threshold, the entropy bar does not.
 
 The displacement criterion trips first and where it trips is set by the drift limit, a known soft spot of displacement-based checks. The other three agree near load factor 8.50 to 8.80. DCR catches the stress that triggers the first failure; the energy and entropy criteria catch its aftermath at the same load. I want to be precise about this: in the linear-elastic range the entropy is flat until the first removal, so the entropy criterion is a one-step-lagging, consequence-side indicator, not an onset detector that leads DCR. A step-size study confirms it: the DCR-to-entropy gap is one load step at every step size and shrinks with it. The honest claim is that entropy reaches the same conclusion as DCR and energy without a calibrated threshold, not that it sees collapse sooner.
 

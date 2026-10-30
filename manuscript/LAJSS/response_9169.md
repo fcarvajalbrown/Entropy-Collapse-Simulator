@@ -93,3 +93,19 @@ computed and reference values, in percent, where the reference is the
 closed-form solution for the analytical cases and an independent finite-element
 program for the independent cases. An entry of 0 now means the two values are
 identical. The truncated case name of the truss has also been restored.
+
+## Comment 7
+
+> Where are the illustrations of the frames and beams addressed in the study, to give your reader to opportunity to interpret your results? Member IDs in Figure 1 make no sense unless a figure shows their location!
+
+Agreed; this was a real omission. A new Figure 1 at the start of Section 3.1
+draws the three benchmark structures (the single-span beam, the 2-bay 3-storey
+moment frame and the 6-panel X-braced truss bridge) with their dimensions,
+supports, loads and the number of every member. The member numbers are the
+ones on the horizontal axis of the member-criticality figure (former Figure 1,
+now Figure 2), so each bar can be located on the structure. The figure is drawn
+directly from the model definitions used in the analysis. The remaining figures
+have been renumbered accordingly. While preparing it we also corrected the name
+of the first benchmark: it is a single span pinned at both ends and modelled
+with two elements, not a two-span beam, and it is now described as a beam with
+no alternate load path rather than as non-redundant.
