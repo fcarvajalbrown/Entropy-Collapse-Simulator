@@ -74,8 +74,19 @@ def main():
     doc = Document(args.docx)
     with open(args.markdown, encoding="utf-8") as fh:
         want_paragraphs, want_rows = md_expected(fh.read())
-    got_paragraphs = [s for s in (docx_marked(p._p) for p in doc.paragraphs) if s]
-    got_rows = [[docx_marked(c.paragraphs[0]._p) for c in r.cells] for t in doc.tables for r in t.rows]
+    got_paragraphs, got_rows = [], []
+    for child in doc.element.body:
+        if child.tag == qn("w:p"):
+            text = docx_marked(child)
+            if text:
+                got_paragraphs.append(text)
+        elif child.tag == qn("w:tbl"):
+            caption = child.find(qn("w:tblPr") + "/" + qn("w:tblCaption"))
+            rows = [[docx_marked(tc) for tc in tr.iter(qn("w:tc"))] for tr in child.iter(qn("w:tr"))]
+            if caption is not None and caption.get(qn("w:val")) == "equation":
+                got_paragraphs.append(merge("".join(rows[0])))
+            else:
+                got_rows.extend(rows)
     problems = []
     if len(got_paragraphs) != len(want_paragraphs):
         problems.append(f"paragraph count {len(got_paragraphs)} in docx, {len(want_paragraphs)} in markdown")

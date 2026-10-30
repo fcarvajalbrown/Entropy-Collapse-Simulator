@@ -45,8 +45,9 @@ def unbold(text):
 
 
 class Converter:
-    def __init__(self, color=None):
+    def __init__(self, color=None, display=False):
         self.color = color
+        self.display = display
 
     def run(self, text, style=None):
         r = m("r")
@@ -107,7 +108,8 @@ class Converter:
                 i += 2
                 continue
             if base is not None and self.is_function(base) and tag == "msub" and i + 1 < len(kids):
-                limit = m("limLow", m("e", self.run(base.text, "p")), m("lim", self.arg(el[1])))
+                kind, slot = ("limLow", "lim") if self.display else ("sSub", "sub")
+                limit = m(kind, m("e", self.run(base.text, "p")), m(slot, self.arg(el[1])))
                 out.append(m("func", m("fName", limit), m("e", self.node(kids[i + 1]))))
                 i += 2
                 continue
@@ -122,7 +124,7 @@ class Converter:
         tag = local(el)
         sub = self.arg(el[1]) if len(el) > 1 else []
         sup = self.arg(el[2]) if tag in ("msubsup", "munderover") and len(el) > 2 else []
-        props = [m("chr", val=el[0].text), m("limLoc", val="undOvr")]
+        props = [m("chr", val=el[0].text), m("limLoc", val="undOvr" if self.display else "subSup")]
         if not sup:
             props.append(m("supHide", val="1"))
         return m("nary", m("naryPr", props), m("sub", sub), m("sup", sup), m("e", self.sequence(body)))
@@ -142,17 +144,23 @@ class Converter:
         return self.leaf(el)
 
 
-def latex_to_omath(latex, color=None):
+def latex_to_omath(latex, color=None, display=False):
     tree = ET.fromstring(latex2mathml.converter.convert(latex))
-    return m("oMath", Converter(color).node(tree))
+    return m("oMath", Converter(color, display).node(tree))
+
+
+def latex_to_omath_para(latex, color=None, justification="center"):
+    return m("oMathPara", m("oMathParaPr", m("jc", val=justification)), latex_to_omath(latex, color, display=True))
 
 
 def main():
     parser = argparse.ArgumentParser(description="Convert a LaTeX math string to a Word OMML <m:oMath> element.")
     parser.add_argument("latex")
     parser.add_argument("--color", default=None)
+    parser.add_argument("--display", action="store_true", help="emit a display <m:oMathPara> instead of inline <m:oMath>")
     args = parser.parse_args()
-    sys.stdout.buffer.write(etree.tostring(latex_to_omath(args.latex, args.color), pretty_print=True, encoding="utf-8"))
+    element = latex_to_omath_para(args.latex, args.color) if args.display else latex_to_omath(args.latex, args.color)
+    sys.stdout.buffer.write(etree.tostring(element, pretty_print=True, encoding="utf-8"))
 
 
 if __name__ == "__main__":
