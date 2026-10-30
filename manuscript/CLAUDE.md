@@ -79,6 +79,14 @@ resistance and energy criteria". Table 4 has DCR at 8.50 and entropy and
 energy at 8.80, one load step apart, and Section 3.4 says entropy lags DCR.
 Settle the wording with Felipe before the resubmission.
 
+**Format.** LAJSS publishes only a Word template; there is no LaTeX one, and
+the upload must be a PDF laid out like a published article. Felipe chose to
+stay in Word. `LAJSS/LAJSS - Template.docx` comes from
+`https://www.lajss.org/index.php/LAJSS/libraryFiles/downloadPublic/22`
+(zip, also ships Calibri). Revisions go into `LAJSS/revision_9169.md` with
+`{+ +}` marks first; `build_docx_lajss.py` is ported only after all nine
+comments are answered.
+
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
 Entropy Robustness Index ...", so the error is in the submission metadata only.
