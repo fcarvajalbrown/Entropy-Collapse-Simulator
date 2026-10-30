@@ -20,7 +20,7 @@ The sentence was unclear, and I rewrote it (Introduction, last paragraph). It no
 
 Comment 3. "Equations are unstructured, which makes them difficult to read;"
 
-I agree. The old Equation (1) put three formulas on one line in plain text. They are now three numbered equations, (1) to (3), and the index definition is split into Equations (4) and (5). All of them are typeset with explicit summation limits, and each group is followed by a "where" clause that defines every symbol. Inline mathematics is also written with proper symbols: the entropy drop ΔH_k, the compliance U/λ², the worst case min_k H_k, the stiffness system Ku = F and the compliance importance I_k, which Section 3.3 now defines in full. The figure axes that used to read "dH_k" now show ΔH_k as well.
+I agree. The old Equation (1) put three formulas on one line in plain text. They are now three numbered equations, (1) to (3), and the index definition is split into Equations (4) and (5). All of them are typeset with explicit summation limits, and each group is followed by a "where" clause that defines every symbol. Inline mathematics is also written with proper symbols: the entropy drop $\Delta H_k$, the compliance $U/\lambda^2$, the worst case $\min_k H_k$, the stiffness system Ku = F and the compliance importance I_k, which Section 3.3 now defines in full. The figure axes that used to read "dH_k" now show $\Delta H_k$ as well.
 
 Comment 4. "What is an active member? In the load or the strain energy on a member is zero, is this member active or not?"
 
