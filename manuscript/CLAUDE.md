@@ -111,10 +111,12 @@ rerendered). PDF built: `LAJSS/Carvajal_LAJSS_9169_revised.pdf`, 9 pages,
 converted headless with `tools/docx_to_pdf/` (ONLYOFFICE `x2t.exe`; Felipe
 uses ONLYOFFICE, there is no Word or LibreOffice on this machine). Display
 equations are borderless two-cell tables so they render at display size;
-the checker reads them back as paragraphs. Felipe has yet to review the PDF.
-Next, in order: Felipe's PDF review; humanizer and felipe-outward-writing pass
-on the cover letter; note to Pablo Munoz, who granted no extension in
-writing; fix the OJS title; upload.
+the checker reads them back as paragraphs. Felipe reviewed and approved the
+PDF. Cover letter approved: `LAJSS/cover_letter_9169.md`, built by
+`LAJSS/build_cover_letter_9169.py` into `cover_letter_9169.docx` and `.pdf`
+(3 pages). Its last line says the OJS title has been corrected, so the title
+must be fixed before upload. Next, in order: note to Pablo Munoz, who granted
+no extension in writing; fix the OJS title; upload.
 
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
