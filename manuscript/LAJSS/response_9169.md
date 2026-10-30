@@ -39,3 +39,16 @@ criterion fires at the same load as the energy criterion and one load step after
 the DCR criterion (Table 4), never before them. The entropy drop is therefore
 presented as a marker of load-path localization when it occurs. The sentence on
 feedback-amplified systems, which carried no reference, has been removed.
+
+## Comment 3
+
+> Equations are unstructured, which makes them difficult to read;
+
+Agreed. The former Equation (1), which held three formulas on one line in plain
+text, is now three numbered equations (1) to (3), and the index definition is
+split into Equations (4) and (5). All are set as typeset equations with explicit
+summation limits, and each group is followed by a "where" clause defining every
+symbol. Inline mathematics (the entropy drop ΔH_k, the compliance U/λ², the
+worst case min_k H_k, the stiffness system Ku = F and the compliance importance
+I_k) is now written with proper symbols, and I_k is defined in full in
+Section 3.3.

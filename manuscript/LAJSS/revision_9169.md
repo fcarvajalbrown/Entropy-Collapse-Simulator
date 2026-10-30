@@ -26,23 +26,33 @@ Two caveats belong here at the start. Strain-energy entropy is itself old, so wh
 
 ### 2.1 strain-energy entropy
 
-At a given load, let U_i be the elastic strain energy in active member i, with N active members in all. Equation (1) gives the normalized energy distribution and its Shannon entropy.
+At a given load, let U_i be the elastic strain energy in active member i, with N active members in all. {+Equations (1) to (3)+} give the normalized energy distribution and its Shannon entropy.
 
-    p_i = U_i / sum(U_j),   S = - sum p_i ln(p_i),   H = S / ln(N)	(1)
+{+$$p_i = \frac{U_i}{\sum_{j=1}^{N} U_j} \qquad (1)$$+}
+
+{+$$S = -\sum_{i=1}^{N} p_i \ln p_i \qquad (2)$$+}
+
+{+$$H = \frac{S}{\ln N}, \qquad 0 \le H \le 1 \qquad (3)$$+}
+
+{+where U_i is the elastic strain energy of active member i, N the number of active members, p_i the share of the total strain energy carried by member i, S the Shannon entropy and H the normalized entropy.+}
 
 H equals 1 when the energy is shared evenly and 0 when a single member holds it all. Because the fractions p_i are ratios, S and H do not move as the load is scaled on a fixed topology. They shift only when the load path itself changes.
 
 ### 2.2 alternate load path and the robustness index
 
-For a linear-elastic frame the redistribution after a member is lost follows exactly from dropping that member from the stiffness assembly and solving Ku = F again; no separate redistribution rule is needed. If the reduced stiffness matrix loses positive-definiteness, the removal has produced a mechanism. Writing H_0 for the intact normalized entropy and H_k for the survivors' entropy after removing member k (with H_k = 0 for a mechanism), the entropy drop is dH_k = H_0 - H_k and the index is the mean over the removal set R, Equation (2).
+For a linear-elastic frame the redistribution after a member is lost follows exactly from dropping that member from the stiffness assembly and solving {+$\mathbf{K}\mathbf{u} = \mathbf{F}$+} again; no separate redistribution rule is needed. If the reduced stiffness matrix loses positive-definiteness, the removal has produced a mechanism. Writing H_0 for the intact normalized entropy and H_k for the survivors' entropy after removing member k (with H_k = 0 for a mechanism), the entropy drop is {+given by Equation (4)+} and the index is the mean over the removal set R, {+Equation (5)+}.
 
-    R_S = (1/|R|) sum_k H_k,   in [0, 1]	(2)
+{+$$\Delta H_k = H_0 - H_k \qquad (4)$$+}
 
-An R_S near 1 means the frame stays redundant under any single loss; near 0 means it does not. The index is bounded and needs no threshold tuned to the structure. Two summaries accompany it: the worst case min_k H_k, and R_S restricted to the removals that stay stable, which separates how even the surviving distribution is from how many losses are survivable. A determinacy bound makes the link to redundancy precise: a statically determinate truss has R_S = 0, because removing any bar of it forms a mechanism, so R_S > 0 requires at least one degree of static indeterminacy (proof in the accompanying theory note).
+{+$$R_S = \frac{1}{|R|} \sum_{k \in R} H_k, \qquad 0 \le R_S \le 1 \qquad (5)$$+}
+
+{+where H_0 is the normalized entropy of the intact frame, H_k that of the frame after member k is removed (H_k = 0 if a mechanism forms), and |R| the number of removals in R.+}
+
+An R_S near 1 means the frame stays redundant under any single loss; near 0 means it does not. The index is bounded and needs no threshold tuned to the structure. Two summaries accompany it: the worst case {+$\min_k H_k$+}, and R_S restricted to the removals that stay stable, which separates how even the surviving distribution is from how many losses are survivable. A determinacy bound makes the link to redundancy precise: a statically determinate truss has R_S = 0, because removing any bar of it forms a mechanism, so R_S > 0 requires at least one degree of static indeterminacy (proof in the accompanying theory note).
 
 ### 2.3 four criteria for comparison
 
-The four criteria are read off one incremental analysis. Load is scaled up, over-stressed members drop out, and at every step four quantities are recorded; each criterion fires the first time its quantity crosses. Displacement fires when the largest nodal translation passes a drift limit. DCR fires when the highest demand-capacity ratio reaches yield. The energy criterion watches the compliance U/lambda^2 rather than U itself, since U grows with lambda^2 on a fixed topology and would otherwise trip on load alone. The entropy criterion fires when the step-to-step entropy drop is an outlier under a z-score test that looks only at earlier steps. The first three need a threshold chosen for the structure. The entropy test does not.
+The four criteria are read off one incremental analysis. Load is scaled up, over-stressed members drop out, and at every step four quantities are recorded; each criterion fires the first time its quantity crosses. Displacement fires when the largest nodal translation passes a drift limit. DCR fires when the highest demand-capacity ratio reaches yield. The energy criterion watches the compliance {+$U/\lambda^2$+} rather than U itself, since U grows with {+$\lambda^2$+} on a fixed topology and would otherwise trip on load alone. The entropy criterion fires when the step-to-step entropy drop is an outlier under a z-score test that looks only at earlier steps. The first three need a threshold chosen for the structure. The entropy test does not.
 
 ### 2.4 implementation and verification
 
@@ -80,7 +90,7 @@ The values fall where intuition says they should. The two-span beam has no secon
 
 [figure]
 
-Figure 1 Entropy-based member criticality (entropy drop dH_k) for the moment frame and the truss bridge.
+Figure 1 Entropy-based member criticality (entropy drop {+$\Delta H_k$+}) for the moment frame and the truss bridge.
 
 ### 3.2 R_S tracks redundancy
 
@@ -104,11 +114,11 @@ Figure 2 R_S rises and the single-loss mechanism fraction falls as the truss gai
 
 ### 3.3 the ranking is not compliance importance
 
-A natural objection is that dH_k just restates the compliance increase caused by removing a member. The two are related but not the same. Comparing the entropy drop with the removal-based compliance importance I_k = dU/U_0 gives a Spearman rank correlation of -0.34 for the moment frame and +0.54 for the truss (Figure 3). The correlation is frame-dependent and well below one; for the moment frame the two rankings are uncorrelated to weakly negative, so the member whose loss most softens the structure need not be the one whose loss most localizes the energy. I do not claim statistical significance at this sample size; the point is that dH_k is not a monotone re-encoding of compliance importance.
+A natural objection is that {+$\Delta H_k$+} just restates the compliance increase caused by removing a member. The two are related but not the same. Comparing the entropy drop with the removal-based compliance importance {+$I_k = (U^{(k)} - U_0)/U_0$, where U_0 is the total strain energy of the intact frame and $U^{(k)}$ the total after member k is removed,+} gives a Spearman rank correlation of -0.34 for the moment frame and +0.54 for the truss (Figure 3). The correlation is frame-dependent and well below one; for the moment frame the two rankings are uncorrelated to weakly negative, so the member whose loss most softens the structure need not be the one whose loss most localizes the energy. I do not claim statistical significance at this sample size; the point is that dH_k is not a monotone re-encoding of compliance importance.
 
 [figure]
 
-Figure 3 Entropy criticality dH_k against compliance importance I_k; the two rankings differ (Spearman in titles).
+Figure 3 Entropy criticality {+$\Delta H_k$+} against compliance importance I_k; the two rankings differ (Spearman in titles).
 
 To check that this is a property of the measure and not of one example, I repeat the comparison over an ensemble of 11 frames of varied size and type (moment frames from one to four bays and two to six stories, and redundant trusses). The rank correlation ranges from -0.56 to +0.87 with mean +0.17, and is negative for 6 of the 11 frames (Figure 4). The sign is systematic rather than random: every multi-bay moment frame gives a negative correlation, while small frames and trusses give positive ones. The entropy criticality is therefore consistently far from a monotone re-encoding of compliance importance, and for a whole class of structures it ranks members in essentially the opposite order.
 
