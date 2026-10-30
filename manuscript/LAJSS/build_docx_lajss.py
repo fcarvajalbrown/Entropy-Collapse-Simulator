@@ -10,13 +10,13 @@ sys.path.insert(0, MANU)
 sys.path.insert(0, os.path.join(ROOT, "tools", "latex_to_omml"))
 
 from docx import Document
-from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm, RGBColor
+from docx.shared import Cm, Pt, RGBColor
 
-from latex_to_omml import latex_to_omath
+from latex_to_omml import latex_to_omath, latex_to_omath_para
 from results import compute_results
 
 TEMPLATE = os.path.join(HERE, "LAJSS - Template.docx")
@@ -28,6 +28,12 @@ ABSTRACT_MAX_CHARS = 1140
 RED_HEX = "FF0000"
 RED = RGBColor(0xFF, 0x00, 0x00)
 FIGURE_WIDTH = Cm(13.0)
+WIDE_FIGURES = {"fig_benchmark_geometry.png": Cm(17.0)}
+TEXT_WIDTH_CM = 17.0
+EQUATION_NUMBER_CM = 1.5
+EQUATION_TAG = "equation"
+STATEMENT_FONT = "Calibri"
+STATEMENT_SIZE = Pt(10.5)
 
 FIGURES_IN_ORDER = [
     "fig_robustness_ranking.png",
@@ -155,6 +161,23 @@ def clear_body(doc):
             body.remove(child)
 
 
+def borderless(table):
+    tbl_pr = table._tbl.tblPr
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        el = OxmlElement("w:" + edge)
+        el.set(qn("w:val"), "nil")
+        borders.append(el)
+    later = [c for c in tbl_pr if c.tag in (qn("w:shd"), qn("w:tblLayout"), qn("w:tblCellMar"), qn("w:tblLook"))]
+    if later:
+        later[0].addprevious(borders)
+    else:
+        tbl_pr.append(borders)
+    caption = OxmlElement("w:tblCaption")
+    caption.set(qn("w:val"), EQUATION_TAG)
+    tbl_pr.append(caption)
+
+
 def add_equation(doc, block):
     red = block.startswith("{+") and block.endswith("+}")
     latex = strip_marks(block).strip()[2:-2].strip()
@@ -162,10 +185,25 @@ def add_equation(doc, block):
     if not number:
         raise SystemExit(f"Display equation without a number: {latex}")
     latex = latex[:number.start()].strip()
-    p = styled(doc, "Equation")
-    p.add_run("\t")
-    p._p.append(latex_to_omath(latex, RED_HEX if red else None))
-    add_run(p, f"\t({number.group(1)})", red)
+    t = doc.add_table(rows=1, cols=2)
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t.autofit = False
+    borderless(t)
+    widths = (Cm(TEXT_WIDTH_CM - EQUATION_NUMBER_CM), Cm(EQUATION_NUMBER_CM))
+    for cell, width in zip(t.rows[0].cells, widths):
+        cell.width = width
+        cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    for cell in t.rows[0].cells:
+        fmt = cell.paragraphs[0]
+        fmt.style = doc.styles["Equation"]
+        fmt.paragraph_format.space_before = Pt(4)
+        fmt.paragraph_format.space_after = Pt(4)
+    math = t.rows[0].cells[0].paragraphs[0]
+    math.paragraph_format.left_indent = Cm(1.25)
+    math._p.append(latex_to_omath_para(latex, RED_HEX if red else None, "left"))
+    tag = t.rows[0].cells[1].paragraphs[0]
+    tag.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    add_run(tag, f"({number.group(1)})", red)
 
 
 def add_author(doc, block):
@@ -206,10 +244,22 @@ def table_rows(block):
     return rows
 
 
+def column_widths(rows):
+    longest = [max(len(plain(row[j])) for row in rows) for j in range(len(rows[0]))]
+    weights = [max(8, min(n, 40)) for n in longest]
+    total = sum(weights)
+    return [Cm(TEXT_WIDTH_CM * w / total) for w in weights]
+
+
 def add_table(doc, block):
     rows = table_rows(block)
     t = doc.add_table(rows=len(rows), cols=len(rows[0]))
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t.autofit = False
+    widths = column_widths(rows)
+    for row in t.rows:
+        for cell, width in zip(row.cells, widths):
+            cell.width = width
     last = len(rows) - 1
     for i, row in enumerate(rows):
         for j, value in enumerate(row):
@@ -237,7 +287,19 @@ def add_figure(doc, filename):
         raise SystemExit(f"Missing figure {path}")
     p = styled(doc, "Figure")
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.add_run().add_picture(path, width=FIGURE_WIDTH)
+    p.add_run().add_picture(path, width=WIDE_FIGURES.get(filename, FIGURE_WIDTH))
+
+
+def add_statement(doc, block):
+    prefix, style = next((prefix, style) for prefix, style in STATEMENT_STYLES if block.startswith(prefix))
+    p = styled(doc, style)
+    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    p.paragraph_format.space_after = Pt(6)
+    add_run(p, prefix, False, bold=True)
+    fill(p, block[len(prefix):])
+    for run in p.runs:
+        run.font.name = STATEMENT_FONT
+        run.font.size = STATEMENT_SIZE
 
 
 def blocks_of(text):
@@ -287,9 +349,12 @@ def render(doc, blocks):
             mode = "References"
         elif mode == "References":
             fill(styled(doc, "Reference"), block)
+        elif any(block.startswith(prefix) for prefix, _ in STATEMENT_STYLES):
+            add_statement(doc, block)
         else:
-            style = next((s for prefix, s in STATEMENT_STYLES if block.startswith(prefix)), "Paragraph")
-            fill(styled(doc, style), block)
+            p = fill(styled(doc, "Paragraph"), block)
+            if plain(block).startswith("where ") and strip_marks(blocks[i - 1]).startswith("$$"):
+                p.paragraph_format.first_line_indent = Cm(0)
         i += 1
     if next(figures, None) is not None:
         raise SystemExit("Fewer [figure] slots in the source than FIGURES_IN_ORDER")
