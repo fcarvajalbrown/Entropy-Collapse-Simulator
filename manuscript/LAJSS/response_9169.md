@@ -64,3 +64,19 @@ carries no load is still active. Its strain energy and its share p_i are zero,
 it adds nothing to S under the convention 0 ln 0 = 0, and it still counts in N,
 so it lowers the normalized entropy H. This is how the index was computed for
 every result in the paper, so no result changes.
+
+## Comment 5
+
+> What is this? "The four criteria are read off one incremental analysis."
+
+The sentence was idiomatic and the paragraph did not describe the procedure.
+Section 2.3 has been rewritten to state it in full: the load factor starts at
+1.0 and rises by a fixed step (0.3 for the truss of Section 3.4); at each step
+the current structure is analysed and four quantities are recorded; members
+whose combined stress reaches the yield stress are removed before the next
+step; and each criterion fires at the first step where its quantity crosses its
+limit. The limits are now given: a translation of 0.05 m, a DCR of 1.0, a
+compliance of three times the intact value, and an entropy drop more than three
+standard deviations below the mean of the earlier drops. The text also now says
+plainly that the entropy test does use a cutoff, but a statistical one that does
+not depend on the structure.
