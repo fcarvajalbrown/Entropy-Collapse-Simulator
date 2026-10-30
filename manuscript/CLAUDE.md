@@ -115,8 +115,12 @@ the checker reads them back as paragraphs. Felipe reviewed and approved the
 PDF. Cover letter approved: `LAJSS/cover_letter_9169.md`, built by
 `LAJSS/build_cover_letter_9169.py` into `cover_letter_9169.docx` and `.pdf`
 (3 pages). Its last line says the OJS title has been corrected, so the title
-must be fixed before upload. Next, in order: note to Pablo Munoz, who granted
-no extension in writing; fix the OJS title; upload.
+must be fixed before upload. Note to Pablo Munoz chosen (short, owns the delay
+without a reason, sent after upload; text given to Felipe in chat). Remaining,
+all Felipe's: fix the OJS title at Publication > Title & Abstract; upload
+`Carvajal_LAJSS_9169_revised.pdf` and `cover_letter_9169.pdf`; post the note.
+Open small item: README line 36 still says the truss's worst single loss
+localizes most, the same error fixed in the paper (moment frame, 0.390).
 
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
