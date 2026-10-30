@@ -92,6 +92,12 @@ Vogel (1985) frame among the independent cases (added for paper 2).
 `build_docx_lajss.py` fills Table 1 from every independent case, so the port
 must filter Vogel out and must stop truncating case names (`[:34]`).
 
+**Open: "two-span beam" is one span.** `structure/frames/frame_2d_simple.py`
+is a single 10 m beam pinned at both ends, meshed as two 5 m elements, with
+a 50 kN midspan load; there is no middle support. The paper calls it a
+"two-span beam". Settle the name with Felipe before the geometry figure
+(comment 7) labels it.
+
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
 Entropy Robustness Index ...", so the error is in the submission metadata only.
