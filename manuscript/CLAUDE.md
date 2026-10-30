@@ -73,11 +73,9 @@ extension has been granted in writing. As of 2026-10-30 the submission shows as
 active with no deadline on the dashboard, and an "action required" notice
 arrived that day. Ask Pablo for the time needed before resubmitting late.
 
-**Open: abstract overstates the criteria result.** The Abstract says the
-entropy criterion "reaches the collapse onset at the same load as the
-resistance and energy criteria". Table 4 has DCR at 8.50 and entropy and
-energy at 8.80, one load step apart, and Section 3.4 says entropy lags DCR.
-Settle the wording with Felipe before the resubmission.
+**Abstract criteria sentence (settled).** It now says the entropy criterion
+fires with the energy criterion and one load step after DCR, matching
+Table 4 and the revised Conclusion.
 
 **Format.** LAJSS publishes only a Word template; there is no LaTeX one, and
 the upload must be a PDF laid out like a published article. Felipe chose to
