@@ -65,12 +65,13 @@ What LAJSS asks for at resubmission:
 - A separate cover letter stating all changes made, answering the reviewers
   point by point.
 
-**Blocker as of 2026-08-29: the reviewer reports are not visible to the author.**
-Nothing appears under the Review stage, the reviewer attachments, or the
-discussion threads. A discussion thread was opened to Pablo Munoz asking him to
-release or attach the reports, and asking that the 21-day window run from the
-date they are received rather than from the decision letter. Nothing substantive
-can be revised until they arrive; do not guess at reviewer concerns.
+**Reports received (blocker closed).** The reports never showed on the author
+side; Pablo Munoz pasted them into the discussion thread opened on 2026-08-29.
+They are kept verbatim in `LAJSS/reviewer_comments_9169.md`: one reviewer, nine
+points. On timing he wrote only "if you need more time, please inform me": no
+extension has been granted in writing. As of 2026-10-30 the submission shows as
+active with no deadline on the dashboard, and an "action required" notice
+arrived that day. Ask Pablo for the time needed before resubmitting late.
 
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
@@ -124,7 +125,7 @@ venue" contingency above still stands.
 
 - **LAJSS** — `LAJSS/build_docx_lajss.py`. Peer-reviewed, revisions required
   2026-08-29; see the LAJSS revision round section above for the deadline, the
-  coloured-text requirement, and the blocker on the missing reports.
+  coloured-text requirement, and the reviewer reports.
 - **IngInv** — `IngInv/build_docx_ingeinv.py`, template `IngInv/Template_IngInv.docx`.
   Bilingual EN body plus ES titulo / resumen / palabras clave; numbered `[n]`
   IEEE references; CRediT, conflicts, and data-availability statements.
