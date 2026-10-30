@@ -96,6 +96,18 @@ at both ends (axially indeterminate to degree 1), so "two-span" and
 "non-redundant" were both wrong. The code's `name="Two-span beam"` still
 needs the same rename in the build port.
 
+**State and next steps.** All nine reviewer comments are answered in
+`LAJSS/revision_9169.md` (changes marked `{+ +}`) with replies in
+`LAJSS/response_9169.md`. An internal review (`LAJSS/internal_review_9169.md`)
+rated it Major Revision; Felipe chose to fix only its confirmed factual errors
+(done) and resubmit, leaving M1-M9 for later. Next, in order: port
+`build_docx_lajss.py` from the working copy (`{+ +}` to red runs, `$$...$$` to
+Word equations, new Figure 1 and renumbering, Table 1 values and full names
+without Vogel, author block, figure axis labels dH_k to Delta H_k, beam name
+in code); build the .docx and the PDF LAJSS requires; humanizer and
+felipe-outward-writing pass on the cover letter; fix the OJS title; tell Pablo
+Munoz, who granted no extension in writing; upload.
+
 **Title typo in the OJS record.** LAJSS holds the title as "A Entropy Robustness
 Index ...". The manuscript and `LAJSS/build_docx_lajss.py` are correct with "An
 Entropy Robustness Index ...", so the error is in the submission metadata only.
