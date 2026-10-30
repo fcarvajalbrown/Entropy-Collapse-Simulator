@@ -8,7 +8,7 @@ Instituto Virginio Gómez, Chillán, Chile. Email: fcarvajalbrown@gmail.com
 
 ## Abstract
 
-Structural robustness rarely reduces to a single number. Engineers judge it with displacement, resistance, or energy criteria, and each needs a limit calibrated to the structure at hand. This paper proposes the Entropy Robustness Index R_S, the Shannon entropy of the elastic strain-energy distribution averaged over the notional member removals of the alternate-load-path method. R_S sits near 1 when a frame keeps sharing energy evenly after any single loss, and falls toward 0 when a loss localizes the energy or forms a mechanism. Implemented {+in+} a first-order linear-elastic {+finite-element model of planar frames with Euler-Bernoulli beam elements,+} verified to floating-point precision, R_S reads 0.00, 0.72, and 0.79 for a non-redundant beam, a redundant moment frame, and a redundant truss. It rises monotonically with the degree of static indeterminacy, and its member ranking is not a re-encoding of compliance importance. On one incremental analysis the entropy criterion reaches the collapse onset at the same load as the resistance and energy criteria, with no calibrated threshold.
+Structural robustness rarely reduces to a single number. Engineers judge it with displacement, resistance, or energy criteria, and each needs a limit calibrated to the structure at hand. This paper proposes the Entropy Robustness Index R_S, the Shannon entropy of the elastic strain-energy distribution averaged over the notional member removals of the alternate-load-path method. R_S sits near 1 when a frame keeps sharing energy evenly after any single loss, and falls toward 0 when a loss localizes the energy or forms a mechanism. Implemented {+in+} a first-order linear-elastic {+finite-element model of planar frames with Euler-Bernoulli beam elements,+} R_S reads 0.00, 0.72, and 0.79 for a non-redundant beam, a redundant moment frame, and a redundant truss. It rises monotonically with the degree of static indeterminacy, and its member ranking is not a re-encoding of compliance importance. On one incremental analysis the entropy criterion reaches the collapse onset at the same load as the resistance and energy criteria, with no calibrated threshold.
 
 ## Keywords
 
@@ -46,20 +46,20 @@ The four criteria are read off one incremental analysis. Load is scaled up, over
 
 ### 2.4 implementation and verification
 
-The tool is written in Python, with modules that talk to each other only through shared data classes. The frame element is a planar Euler-Bernoulli {+beam+} element with axial and in-plane bending stiffness; truss members are axial-only bars. One detail matters more than it looks: the local bending plane is pinned to the global X-Y plane for every member. Taking it from a per-member reference vector rotates a column's bending plane out of plane and leaves the in-plane system singular, a failure that is easy to miss because a least-squares solve still returns numbers.
+{+Because R_S is computed directly from the member strain energies, those energies were checked against closed-form solutions and an independent program before any index was computed.+} The tool is written in Python, with modules that talk to each other only through shared data classes. The frame element is a planar Euler-Bernoulli {+beam+} element with axial and in-plane bending stiffness; truss members are axial-only bars. One detail matters more than it looks: the local bending plane is pinned to the global X-Y plane for every member. Taking it from a per-member reference vector rotates a column's bending plane out of plane and leaves the in-plane system singular, a failure that is easy to miss because a least-squares solve still returns numbers.
 
-Verification runs on three tiers (Table 1). The first two confirm the {+finite-element model+}: closed-form beams match to the last digit, and an independent {+finite-element program with three degrees of freedom per node, written from scratch,+} reproduces the redundant frames exactly, including a larger 3-bay 6-story frame (28 nodes, 42 members). The third tier checks the quantities R_S actually depends on: the per-member distribution, the post-removal ALP states, the failure criterion, and the stability test all agree with independent calculations. The Ziemian and Ziemian (2021) steel benchmark frames are a useful external reference, but their published results are second-order (P-Delta) and sit outside what a first-order {+analysis+} can reproduce, so I cite them for future checks rather than match them here.
+Verification runs on three tiers (Table 1). The first two confirm the {+finite-element model+}: {+closed-form beam solutions are reproduced+}, and an independent {+finite-element program with three degrees of freedom per node, written from scratch,+} reproduces the redundant frames, including a larger 3-bay 6-story frame (28 nodes, 42 members). {+Every displacement and strain-energy error in Table 1 is below 4 × 10^-13 %.+} The third tier checks the quantities R_S actually depends on: the per-member distribution, the post-removal ALP states, the failure criterion, and the stability test all agree with independent calculations. The Ziemian and Ziemian (2021) steel benchmark frames are a useful external reference, but their published results are second-order (P-Delta) and sit outside what a first-order {+analysis+} can reproduce, so I cite them for future checks rather than match them here.
 
 Table 1 Verification errors relative to reference (computed by benchmark.py).
 
 | Tier | Case | Displacement err | Strain-energy err |
 |---|---|---|---|
-| Analytical | Simply-supported beam | 0.0000% | 0.0000% |
-| Analytical | Fixed-fixed beam | 0.0000% | 0.0000% |
-| Analytical | Cantilever beam | 0.0000% | 0.0000% |
-| Independent | 2D Moment Frame (2-bay, 3-story) | 0.0000% | 0.0000% |
-| Independent | 2D Moment Frame (3-bay, 6-story) | 0.0000% | 0.0000% |
-| Independent | Redundant truss bridge (6-panel, 3 | 0.0000% | 0.0000% |
+| Analytical | Simply-supported beam | {+0+} | {+1.7 × 10^-14 %+} |
+| Analytical | Fixed-fixed beam | {+0+} | {+1.7 × 10^-14 %+} |
+| Analytical | Cantilever beam | {+0+} | {+1.4 × 10^-14 %+} |
+| Independent | 2D Moment Frame (2-bay, 3-story) | {+1.9 × 10^-14 %+} | {+1.8 × 10^-14 %+} |
+| Independent | 2D Moment Frame (3-bay, 6-story) | {+1.5 × 10^-13 %+} | {+1.2 × 10^-13 %+} |
+| Independent | Redundant truss bridge (6-panel, 3 | {+3.1 × 10^-13 %+} | {+3.7 × 10^-13 %+} |
 | Index checks | distribution / ALP / failure / stability (7/7 pass) | - | - |
 
 ## 3 RESULTS
@@ -145,7 +145,7 @@ The limits should be read plainly. Entropy of strain energy is old, so the new p
 
 ## 4 CONCLUSION
 
-R_S is a bounded redundancy measure, built from the strain-energy entropy under the alternate-load-path procedure, that carries no calibrated threshold and equals 0 for a statically determinate structure by a provable bound. On a {+finite-element model+} verified to floating-point precision (closed-form, an independent {+finite-element program+}, and checks of the distribution, ALP states, failure criterion and stability test), R_S separates the benchmarks (0.00, 0.72, 0.79) and rises monotonically with the degree of static indeterminacy. The entropy member-criticality ranking is not a monotone re-encoding of compliance importance (Spearman -0.34 and +0.54), and the entropy criterion reaches the collapse onset at the same load as the resistance and energy criteria with no threshold tuned to the structure.
+R_S is a bounded redundancy measure, built from the strain-energy entropy under the alternate-load-path procedure, that carries no calibrated threshold and equals 0 for a statically determinate structure by a provable bound. R_S separates the benchmarks (0.00, 0.72, 0.79) and rises monotonically with the degree of static indeterminacy. The entropy member-criticality ranking is not a monotone re-encoding of compliance importance (Spearman -0.34 and +0.54), and the entropy criterion reaches the collapse onset at the same load as the resistance and energy criteria with no threshold tuned to the structure.
 
 Author's Contributions: LAJSS endorses the CRediT taxonomy of contributor roles. Conceptualization, F Carvajal Brown; Methodology, F Carvajal Brown; Software, F Carvajal Brown; Validation, F Carvajal Brown; Formal analysis, F Carvajal Brown; Investigation, F Carvajal Brown; Writing - original draft, F Carvajal Brown; Writing - review & editing, F Carvajal Brown.
 
