@@ -123,7 +123,7 @@ frames -> stiffness -> solver -> entropy/analysis -> simulation -> visualization
 
 | Scenario | What it is | R_S |
 |---|---|---|
-| `2d_simple` | two-span beam (non-redundant) | 0.00 |
+| `2d_simple` | single-span beam, no alternate load path | 0.00 |
 | `building_2d` | 2-bay 3-story steel moment frame (redundant) | 0.72 |
 | `building_large` | 3-bay 6-story moment frame (scalability) | 0.78 |
 | `pratt_bridge` | 6-panel X-braced pin-jointed truss (redundant) | 0.79 |

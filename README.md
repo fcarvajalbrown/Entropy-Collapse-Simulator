@@ -31,7 +31,7 @@ energy, and entropy collapse criteria. The full mathematical basis is in
 
 | Structure | Robustness `R_S` | Reading |
 |---|---|---|
-| Two-span beam (non-redundant) | **0.00** | any member loss collapses it |
+| Single-span beam (no alternate load path) | **0.00** | any member loss collapses it |
 | 2-bay 3-story moment frame | **0.72** | redundant; no single loss is fatal |
 | X-braced truss bridge | **0.79** | redundant; worst single loss localizes most |
 
@@ -146,7 +146,7 @@ Selected arguments:
 
 | Scenario | Description | R_S |
 |---|---|---|
-| `2d_simple` | Two-span beam (frame elements). Non-redundant: any member loss collapses it. | 0.00 |
+| `2d_simple` | Single-span beam pinned at both ends, two frame elements. No alternate load path: any member loss collapses it. | 0.00 |
 | `building_2d` | Planar 2-bay, 3-story steel moment frame. Redundant; column-removal demo. | 0.72 |
 | `building_large` | Larger 3-bay, 6-story moment frame (28 nodes, 42 members). Scalability case. | 0.78 |
 | `pratt_bridge` | 6-panel 30 m pin-jointed truss, X-braced to be statically indeterminate (redundant). | 0.79 |

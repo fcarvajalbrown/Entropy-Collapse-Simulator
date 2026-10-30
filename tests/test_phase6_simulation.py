@@ -25,7 +25,7 @@ def test_2d_simple_runs():
     """scenario_2d_simple completes and returns a SimulationResult."""
     result = run_scenario("2d_simple", max_steps=20)
     assert result is not None
-    assert result.frame_name == "Two-span beam"
+    assert result.frame_name == "Single-span beam"
     assert len(result.energy_history) > 0
     assert len(result.entropy_history) == len(result.energy_history)
     print(f"  PASS: 2d_simple ran {len(result.energy_history)} steps")
